@@ -1,68 +1,40 @@
-# Development stage
-FROM python:3.11-slim as development
+# Use Python 3.11 slim image as base
+FROM python:3.11-slim
 
+# Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies required for Python packages
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY requirements.txt .
 
 # Install Python dependencies
-COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Development specific packages
-RUN pip install --no-cache-dir watchdog
+# Copy application files
+COPY src /app/src/
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8000
+# Add src directory to Python path
 ENV PYTHONPATH=/app
 
-# Expose port
-EXPOSE 8000
-
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Start FastAPI server with hot reload
-CMD ["uvicorn", "rag_api:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-
-# Production stage
-FROM python:3.11-slim as production
-
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application code
-COPY . .
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8000
-ENV PYTHONPATH=/app
-
-# Create credentials directory
+# Create directory for credentials (optional - used for cloud providers)
 RUN mkdir -p /app/credentials
 
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8000
+
 # Expose port
 EXPOSE 8000
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8000/ || exit 1
 
-# Start FastAPI server
-CMD ["uvicorn", "rag_api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Start FastAPI server using uvicorn
+CMD ["uvicorn", "src.api.rag_api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
