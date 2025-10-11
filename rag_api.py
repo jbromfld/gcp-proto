@@ -20,6 +20,7 @@ from rag_evaluation import FeedbackStore, FeedbackType
 from rag_etl_pipeline import (
     ETLPipeline, ElasticsearchIndexer, DocumentChunker, ScheduledETL
 )
+from elasticsearch_client import create_elasticsearch_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -109,9 +110,9 @@ async def startup_event():
     global rag_service, feedback_store, scheduled_etl
     
     try:
-        # Connect to Elasticsearch
+        # Connect to Elasticsearch (with authentication support)
+        es_client = create_elasticsearch_client()
         es_url = os.environ.get('ELASTICSEARCH_URL', 'http://elasticsearch:9200')
-        es_client = Elasticsearch([es_url])
         logging.info(f"Connecting to Elasticsearch at {es_url}")
         
         # Default to local models for POC

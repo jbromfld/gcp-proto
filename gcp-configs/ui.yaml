@@ -1,0 +1,33 @@
+# Cloud Run service configuration for UI
+# Can be applied with: gcloud run services replace ui.yaml
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rag-ui
+  labels:
+    cloud.googleapis.com/location: us-central1
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "5"
+    spec:
+      serviceAccountName: rag-service@PROJECT_ID.iam.gserviceaccount.com
+      timeoutSeconds: 300
+      containerConcurrency: 80
+      containers:
+        - image: us-central1-docker.pkg.dev/PROJECT_ID/rag-system/rag-ui:latest
+          ports:
+            - containerPort: 8501
+          resources:
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          env:
+            - name: API_URL
+              value: https://rag-api-HASH-uc.a.run.app
+  traffic:
+    - percent: 100
+      latestRevision: true
