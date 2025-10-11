@@ -1,19 +1,18 @@
 terraform {
   required_version = ">= 1.0"
-
+  
   required_providers {
     google = {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
   }
-
-  backend "gcs" {
-    # Configure after creating bucket:
-    # terraform init -backend-config="bucket=YOUR-PROJECT-terraform-state"
-    # bucket = "your-project-terraform-state"
-    prefix = "rag-system/state"
-  }
+  
+  # Remote state backend (optional - uncomment after setup-gcp.sh creates the bucket)
+  # backend "gcs" {
+  #   bucket = "YOUR-PROJECT-ID-terraform-state"
+  #   prefix = "rag-system/state"
+  # }
 }
 
 provider "google" {
