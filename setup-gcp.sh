@@ -86,37 +86,52 @@ gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
 
 log_success "Permissions granted"
 
-# Create secrets
-log_info "Creating Secret Manager secrets..."
+# Create secrets (only needed if using Elastic Cloud, not GCE)
+log_info "Setting up Secret Manager secrets..."
 
-# Elasticsearch URL
-if [ ! -z "${ELASTICSEARCH_URL}" ]; then
-    echo -n "${ELASTICSEARCH_URL}" | gcloud secrets create elasticsearch-url \
-        --data-file=- \
-        --replication-policy="automatic" \
-        || gcloud secrets versions add elasticsearch-url --data-file=- <<< "${ELASTICSEARCH_URL}"
-    log_success "Elasticsearch URL secret created"
+if [ "${USE_GCE_ELASTICSEARCH}" = "true" ]; then
+    log_info "Using GCE Elasticsearch - no secrets needed (internal communication)"
+    log_success "Skipping Elasticsearch secrets (not needed for GCE)"
 else
-    gcloud secrets create elasticsearch-url \
-        --replication-policy="automatic" \
-        || log_warning "elasticsearch-url secret exists"
-    log_warning "Please set Elasticsearch URL manually:"
-    echo "  echo 'https://your-elastic-url' | gcloud secrets versions add elasticsearch-url --data-file=-"
-fi
-
-# Elasticsearch password
-if [ ! -z "${ELASTICSEARCH_PASSWORD}" ]; then
-    echo -n "${ELASTICSEARCH_PASSWORD}" | gcloud secrets create elasticsearch-password \
-        --data-file=- \
-        --replication-policy="automatic" \
-        || gcloud secrets versions add elasticsearch-password --data-file=- <<< "${ELASTICSEARCH_PASSWORD}"
-    log_success "Elasticsearch password secret created"
-else
-    gcloud secrets create elasticsearch-password \
-        --replication-policy="automatic" \
-        || log_warning "elasticsearch-password secret exists"
-    log_warning "Please set Elasticsearch password manually:"
-    echo "  echo 'your-password' | gcloud secrets versions add elasticsearch-password --data-file=-"
+    log_info "Using Elastic Cloud - creating secrets for credentials..."
+    
+    # Create elasticsearch-url secret
+    if gcloud secrets describe elasticsearch-url &>/dev/null; then
+        log_warning "elasticsearch-url secret already exists"
+        if [ ! -z "${ELASTICSEARCH_URL}" ]; then
+            echo -n "${ELASTICSEARCH_URL}" | gcloud secrets versions add elasticsearch-url --data-file=-
+            log_success "Updated elasticsearch-url secret"
+        fi
+    else
+        # Create the secret first
+        gcloud secrets create elasticsearch-url --replication-policy="automatic"
+        if [ ! -z "${ELASTICSEARCH_URL}" ]; then
+            echo -n "${ELASTICSEARCH_URL}" | gcloud secrets versions add elasticsearch-url --data-file=-
+            log_success "Created elasticsearch-url secret"
+        else
+            log_warning "Secret created but empty. Set it with:"
+            echo "  echo 'https://your-elastic-url:9243' | gcloud secrets versions add elasticsearch-url --data-file=-"
+        fi
+    fi
+    
+    # Create elasticsearch-password secret
+    if gcloud secrets describe elasticsearch-password &>/dev/null; then
+        log_warning "elasticsearch-password secret already exists"
+        if [ ! -z "${ELASTICSEARCH_PASSWORD}" ] && [ "${ELASTICSEARCH_PASSWORD}" != "your-elastic-password" ]; then
+            echo -n "${ELASTICSEARCH_PASSWORD}" | gcloud secrets versions add elasticsearch-password --data-file=-
+            log_success "Updated elasticsearch-password secret"
+        fi
+    else
+        # Create the secret first
+        gcloud secrets create elasticsearch-password --replication-policy="automatic"
+        if [ ! -z "${ELASTICSEARCH_PASSWORD}" ] && [ "${ELASTICSEARCH_PASSWORD}" != "your-elastic-password" ]; then
+            echo -n "${ELASTICSEARCH_PASSWORD}" | gcloud secrets versions add elasticsearch-password --data-file=-
+            log_success "Created elasticsearch-password secret"
+        else
+            log_warning "Secret created but empty. Set it with:"
+            echo "  echo 'your-password' | gcloud secrets versions add elasticsearch-password --data-file=-"
+        fi
+    fi
 fi
 
 # Create terraform state bucket (if using terraform)
