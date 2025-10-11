@@ -19,22 +19,12 @@ resource "google_cloud_run_service" "api" {
 
         env {
           name = "ELASTICSEARCH_URL"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.elasticsearch_url[0].secret_id
-              key  = "latest"
-            }
-          }
+          value = var.use_gce_elasticsearch ? "http://${google_compute_instance.elasticsearch[0].network_interface[0].network_ip}:9200" : var.elasticsearch_url
         }
 
         env {
           name = "ELASTICSEARCH_PASSWORD"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.elasticsearch_password[0].secret_id
-              key  = "latest"
-            }
-          }
+          value = var.use_gce_elasticsearch ? "" : var.elasticsearch_password
         }
 
         env {
@@ -150,22 +140,12 @@ resource "google_cloud_run_service" "etl" {
 
         env {
           name = "ELASTICSEARCH_URL"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.elasticsearch_url[0].secret_id
-              key  = "latest"
-            }
-          }
+          value = var.use_gce_elasticsearch ? "http://${google_compute_instance.elasticsearch[0].network_interface[0].network_ip}:9200" : var.elasticsearch_url
         }
 
         env {
           name = "ELASTICSEARCH_PASSWORD"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.elasticsearch_password[0].secret_id
-              key  = "latest"
-            }
-          }
+          value = var.use_gce_elasticsearch ? "" : var.elasticsearch_password
         }
 
         env {
