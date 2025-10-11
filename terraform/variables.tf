@@ -11,14 +11,16 @@ variable "region" {
 }
 
 variable "elasticsearch_url" {
-  description = "Elasticsearch URL (Elastic Cloud or GKE service)"
+  description = "Elasticsearch URL (only needed if use_gce_elasticsearch = false)"
   type        = string
+  default     = ""
   # Example: "https://your-deployment.es.us-central1.gcp.cloud.es.io:9243"
 }
 
 variable "elasticsearch_password" {
-  description = "Elasticsearch password"
+  description = "Elasticsearch password (only needed if use_gce_elasticsearch = false)"
   type        = string
+  default     = ""
   sensitive   = true
 }
 

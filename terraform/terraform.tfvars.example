@@ -11,10 +11,12 @@ elasticsearch_machine_type = "e2-micro"  # FREE tier! Or e2-medium ($25/mo)
 elasticsearch_disk_size_gb = 30          # FREE tier! Or 50+ for production
 elasticsearch_use_preemptible = false    # Set true for dev to save 60%
 
-# Option 2: Elastic Cloud ($95+/mo)
+# Option 2: Elastic Cloud ($95+/mo) - Only uncomment if NOT using GCE
 # use_gce_elasticsearch  = false
 # elasticsearch_url      = "https://your-deployment.es.us-central1.gcp.cloud.es.io:9243"
 # elasticsearch_password = "your-elastic-password"
+
+# Note: elasticsearch_url and elasticsearch_password are NOT needed when use_gce_elasticsearch = true
 
 # VPC connector (only needed for GKE Elasticsearch)
 use_vpc_connector = false

@@ -1,6 +1,7 @@
-# Secret versions (populated via terraform or manually)
+# Secret versions (only created if using Elastic Cloud, not GCE)
 resource "google_secret_manager_secret_version" "elasticsearch_url" {
-  secret = google_secret_manager_secret.elasticsearch_url.id
+  count  = var.use_gce_elasticsearch ? 0 : 1
+  secret = google_secret_manager_secret.elasticsearch_url[0].id
 
   secret_data = var.elasticsearch_url
 
@@ -10,7 +11,8 @@ resource "google_secret_manager_secret_version" "elasticsearch_url" {
 }
 
 resource "google_secret_manager_secret_version" "elasticsearch_password" {
-  secret = google_secret_manager_secret.elasticsearch_password.id
+  count  = var.use_gce_elasticsearch ? 0 : 1
+  secret = google_secret_manager_secret.elasticsearch_password[0].id
 
   secret_data = var.elasticsearch_password
 
@@ -19,15 +21,17 @@ resource "google_secret_manager_secret_version" "elasticsearch_password" {
   }
 }
 
-# Grant service account access to secrets
+# Grant service account access to secrets (only if using Elastic Cloud)
 resource "google_secret_manager_secret_iam_member" "elasticsearch_url_access" {
-  secret_id = google_secret_manager_secret.elasticsearch_url.id
+  count     = var.use_gce_elasticsearch ? 0 : 1
+  secret_id = google_secret_manager_secret.elasticsearch_url[0].id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.rag_service.email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "elasticsearch_password_access" {
-  secret_id = google_secret_manager_secret.elasticsearch_password.id
+  count     = var.use_gce_elasticsearch ? 0 : 1
+  secret_id = google_secret_manager_secret.elasticsearch_password[0].id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.rag_service.email}"
 }
