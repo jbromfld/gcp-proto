@@ -25,6 +25,7 @@ COPY rag_llm_abstraction.py .
 COPY rag_service.py .
 COPY rag_evaluation.py .
 COPY rag_etl_pipeline.py .
+COPY elasticsearch_client.py .
 
 # Create directory for credentials (optional - used for cloud providers)
 RUN mkdir -p /app/credentials
