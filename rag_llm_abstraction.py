@@ -132,18 +132,18 @@ class VertexAILLM(LLMProvider):
     
     @staticmethod
     def _build_rag_prompt(query: str, context: str) -> str:
-        """Build RAG prompt template"""
+        """Build RAG prompt template - strict RAG for relevant context"""
         return f"""CONTEXT FROM KNOWLEDGE BASE:
 {context}
 
 USER QUESTION: {query}
 
 INSTRUCTIONS:
-1. Answer using ONLY the information in the provided context
-2. Cite sources using [Document X] notation
+1. Answer using the information in the provided context
+2. Cite sources using [Document X] notation when referencing specific information
 3. If the context doesn't contain enough information, say "Based on the provided context, I cannot fully answer this question."
 4. Be concise but comprehensive
-5. If the context contains conflicting information, note this
+5. If there's conflicting information in the context, acknowledge it
 
 ANSWER:"""
 

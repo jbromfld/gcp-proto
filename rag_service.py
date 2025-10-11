@@ -233,7 +233,8 @@ class RAGService:
         retrieval_time = (time.time() - retrieval_start) * 1000
         
         # Check if we have relevant documents
-        RELEVANCE_THRESHOLD = 3.0  # Minimum score for document to be considered relevant
+        # Higher threshold = stricter relevance check
+        RELEVANCE_THRESHOLD = 8.0  # Minimum score for document to be considered truly relevant
         
         if not retrieved_docs:
             logger.warning(f"No documents retrieved for query: {user_query}")
@@ -244,10 +245,12 @@ class RAGService:
         
         # Check if retrieved documents are actually relevant
         max_score = max(doc.score for doc in retrieved_docs)
+        logger.info(f"Max relevance score: {max_score:.2f}, threshold: {RELEVANCE_THRESHOLD}")
+        
         if max_score < RELEVANCE_THRESHOLD:
             logger.warning(
                 f"Retrieved documents below relevance threshold "
-                f"(max score: {max_score:.2f} < {RELEVANCE_THRESHOLD})"
+                f"(max score: {max_score:.2f} < {RELEVANCE_THRESHOLD}) - using general knowledge fallback"
             )
             # Use LLM general knowledge instead
             return self._query_llm_without_context(
@@ -408,15 +411,15 @@ class RAGService:
     def _get_default_system_prompt() -> str:
         """Default system prompt for RAG"""
         return """You are a helpful AI assistant with access to a knowledge base. 
-Your role is to answer questions accurately based on the provided context.
+Your role is to answer questions accurately, prioritizing the provided context.
 
 Guidelines:
-- Answer questions using ONLY information from the provided context
-- Cite sources using [Document X] notation when referencing specific information
-- If the context doesn't contain sufficient information, clearly state this
+- FIRST, check if the provided context contains information relevant to the question
+- If the context has relevant information, answer using it and cite sources using [Document X] notation
+- If the context does NOT contain information about the question topic, use your general knowledge to answer
+- When using general knowledge (not from context), start your answer with: "The provided context doesn't cover this topic. From general knowledge:"
 - Be concise but comprehensive
-- If there's conflicting information in the context, acknowledge it
-- Never make up information not present in the context"""
+- If there's conflicting information in the context, acknowledge it"""
 
 
 class QueryPreprocessor:
