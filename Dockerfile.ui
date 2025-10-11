@@ -1,4 +1,5 @@
 # Use Python 3.11 slim image as base
+# docker build -t us-central1-docker.pkg.dev/gcp-poc-474818/rag-system/rag-ui:latest -f Dockerfile.ui .
 FROM python:3.11-slim
 
 # Set working directory
