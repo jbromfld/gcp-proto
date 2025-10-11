@@ -6,9 +6,8 @@ Simple interface for queries, feedback, and metrics
 import os
 import streamlit as st
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 import plotly.graph_objects as go
-import plotly.express as px
 
 # Configuration
 API_BASE_URL = os.environ.get('API_URL', 'http://api:8000')

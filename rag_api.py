@@ -6,7 +6,7 @@ Provides REST API for queries, feedback, and metrics
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict
+from typing import Optional, List
 from datetime import datetime, timedelta
 import logging
 import os
@@ -16,7 +16,7 @@ from elasticsearch import Elasticsearch
 from rag_embeddings import EmbeddingFactory, EMBEDDING_CONFIGS
 from rag_llm_abstraction import LLMFactory, LLM_CONFIGS
 from rag_service import RAGService, HybridSearchEngine
-from rag_evaluation import FeedbackStore, FeedbackType, EvaluationMetrics
+from rag_evaluation import FeedbackStore, FeedbackType
 from rag_etl_pipeline import (
     ETLPipeline, ElasticsearchIndexer, DocumentChunker, ScheduledETL
 )

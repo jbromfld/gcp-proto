@@ -5,12 +5,11 @@ Integrates all components: embeddings, LLM, search, evaluation
 
 import time
 import uuid
-from typing import List, Dict, Optional
+from typing import List, Optional
 from dataclasses import dataclass
 import logging
 
 from elasticsearch import Elasticsearch
-import numpy as np
 
 from rag_embeddings import EmbeddingProvider
 from rag_llm_abstraction import LLMProvider, LLMResponse

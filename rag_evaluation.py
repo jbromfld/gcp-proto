@@ -6,13 +6,12 @@ Tracks user feedback, metrics, and provides analytics
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Literal
+from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 import logging
 
 from elasticsearch import Elasticsearch
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
