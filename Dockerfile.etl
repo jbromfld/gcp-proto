@@ -19,45 +19,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY rag_etl_pipeline.py .
 COPY rag_embeddings.py .
-
-# Create script to run ETL scheduler
-RUN echo '#!/usr/bin/env python3\n\
-    from rag_etl_pipeline import *\n\
-    from rag_embeddings import *\n\
-    import os\n\
-    \n\
-    # Initialize components\n\
-    es_client = Elasticsearch([os.environ["ELASTICSEARCH_URL"]])\n\
-    embedding_config = EMBEDDING_CONFIGS["local_minilm"]\n\
-    embedder = EmbeddingFactory.create(embedding_config)\n\
-    \n\
-    # Create index\n\
-    indexer = ElasticsearchIndexer(es_client)\n\
-    indexer.create_index(embedding_dim=embedder.dimensions)\n\
-    \n\
-    # Setup pipeline\n\
-    chunker = DocumentChunker(chunk_size=500, overlap=50)\n\
-    pipeline = ETLPipeline(embedder, indexer, chunker)\n\
-    \n\
-    # Get URLs from environment\n\
-    scrape_urls = os.environ["SCRAPE_URLS"].split(",")\n\
-    interval_hours = int(os.environ.get("ETL_INTERVAL_HOURS", "24"))\n\
-    \n\
-    # Create and run scheduler\n\
-    scheduler = ScheduledETL(\n\
-    pipeline=pipeline,\n\
-    scrape_urls=scrape_urls,\n\
-    interval_hours=interval_hours\n\
-    )\n\
-    \n\
-    print("Starting ETL scheduler...")\n\
-    scheduler.run_loop()' > run_etl.py
-
-# Make script executable
-RUN chmod +x run_etl.py
+COPY rag_llm_abstraction.py .
+COPY rag_service.py .
+COPY rag_evaluation.py .
+COPY elasticsearch_client.py .
+COPY rag_etl_server.py .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
 
-# Run ETL scheduler
-CMD ["python3", "run_etl.py"]
+EXPOSE 8080
+
+# Start FastAPI server for ETL triggers (Cloud Run requires HTTP server)
+CMD ["uvicorn", "rag_etl_server:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
