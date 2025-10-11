@@ -3,6 +3,7 @@ Evaluation and feedback system for RAG pipeline
 Tracks user feedback, metrics, and provides analytics
 """
 
+import os
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Literal
@@ -428,7 +429,8 @@ class TestSuite:
 
 # Example usage
 if __name__ == "__main__":
-    es_client = Elasticsearch(['http://localhost:9200'])
+    es_url = os.environ.get('ELASTICSEARCH_URL', 'http://elasticsearch:9200')
+    es_client = Elasticsearch([es_url])
     feedback_store = FeedbackStore(es_client)
     
     # Simulate logging a query

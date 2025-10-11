@@ -16,10 +16,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY src /app/src/
-
-# Add src directory to Python path
-ENV PYTHONPATH=/app
+COPY rag_ui.py .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
@@ -29,4 +26,4 @@ ENV PORT=8501
 EXPOSE 8501
 
 # Start Streamlit server
-CMD ["streamlit", "run", "src/ui/rag_ui.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "rag_ui.py", "--server.port=8501", "--server.address=0.0.0.0"]

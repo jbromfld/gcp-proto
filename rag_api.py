@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 import logging
+import os
 
 from elasticsearch import Elasticsearch
 
@@ -109,7 +110,9 @@ async def startup_event():
     
     try:
         # Connect to Elasticsearch
-        es_client = Elasticsearch(['http://localhost:9200'])
+        es_url = os.environ.get('ELASTICSEARCH_URL', 'http://elasticsearch:9200')
+        es_client = Elasticsearch([es_url])
+        logging.info(f"Connecting to Elasticsearch at {es_url}")
         
         # Default to local models for POC
         embedding_config = EMBEDDING_CONFIGS['local_minilm']

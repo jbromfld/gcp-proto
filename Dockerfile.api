@@ -17,10 +17,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY src /app/src/
-
-# Add src directory to Python path
-ENV PYTHONPATH=/app
+COPY rag_api.py .
+COPY rag_embeddings.py .
+COPY rag_llm_abstraction.py .
+COPY rag_service.py .
+COPY rag_evaluation.py .
+COPY rag_etl_pipeline.py .
 
 # Create directory for credentials (optional - used for cloud providers)
 RUN mkdir -p /app/credentials
@@ -37,4 +39,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/ || exit 1
 
 # Start FastAPI server using uvicorn
-CMD ["uvicorn", "src.api.rag_api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "rag_api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

@@ -1,48 +1,50 @@
 # Docker Compose for RAG Knowledge Search System
 # Includes: Elasticsearch, API server, UI, and optional Ollama
-
-version: '3.8'
-
 services:
   # Elasticsearch for vector storage
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.12
     container_name: rag-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g" # Reduced memory for local dev
+      - cluster.name=rag-cluster
+      - node.name=rag-single-node
+      - bootstrap.memory_lock=true
+      - "TAKE_FILE_OWNERSHIP=1"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     ports:
       - "9200:9200"
-      - "9300:9300"
     volumes:
       - es-data:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cat/health?h=status"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     networks:
       - rag-network
+    restart: unless-stopped
 
-  # Ollama for local LLM (optional - remove if using cloud providers)
-  ollama:
-    image: ollama/ollama:latest
-    container_name: rag-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    networks:
-      - rag-network
-    # Uncomment if you have GPU
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+  # Ollama for local LLM - using native macOS Ollama with GPU support
+  # (Disabled - using host.docker.internal to connect to native Ollama)
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: rag-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   networks:
+  #     - rag-network
+  #   platform: linux/arm64
+  #   environment:
+  #     - OLLAMA_MODEL=llama2:7b-chat-q4
 
   # FastAPI backend
   api:
@@ -54,9 +56,11 @@ services:
       - "8000:8000"
     environment:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_URL=http://host.docker.internal:11434
       - EMBEDDING_PROVIDER=local
       - LLM_PROVIDER=local
+      - PYTHONPATH=/app
       # For cloud providers, set these:
       # - EMBEDDING_PROVIDER=vertex
       # - LLM_PROVIDER=vertex
@@ -65,10 +69,9 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-      ollama:
-        condition: service_started
+    # Only mount credentials if the directory exists
     volumes:
-      - ./credentials:/app/credentials:ro
+      - ${PWD}/credentials:/app/credentials:ro,Z
     networks:
       - rag-network
     healthcheck:
@@ -86,7 +89,7 @@ services:
     ports:
       - "8501:8501"
     environment:
-      - API_BASE_URL=http://api:8000
+      - API_URL=http://api:8000
     depends_on:
       - api
     networks:
@@ -100,15 +103,14 @@ services:
     container_name: rag-etl
     environment:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_URL=http://host.docker.internal:11434
       - EMBEDDING_PROVIDER=local
+      - PYTHONPATH=/app
       - ETL_INTERVAL_HOURS=24
       - SCRAPE_URLS=https://docs.python.org/3/tutorial/,https://fastapi.tiangolo.com/
     depends_on:
       elasticsearch:
         condition: service_healthy
-      ollama:
-        condition: service_started
     networks:
       - rag-network
     restart: unless-stopped

@@ -73,22 +73,17 @@ python -c "from rag_etl_pipeline import *; ..."
 ## 📦 Project Structure
 
 ```
-src/
-├── api/               # FastAPI backend
-│   ├── __init__.py
-│   └── rag_api.py
-├── core/              # Core business logic
-│   ├── __init__.py
-│   ├── rag_embeddings.py
-│   ├── rag_llm_abstraction.py
-│   └── rag_service.py
-├── etl/               # ETL and evaluation
-│   ├── __init__.py
-│   ├── rag_etl_pipeline.py
-│   └── rag_evaluation.py
-└── ui/                # Streamlit UI
-    ├── __init__.py
-    └── rag_ui.py             # This file
+rag-knowledge-search/
+├── rag_embeddings.py          # Embedding abstraction layer
+├── rag_llm_abstraction.py     # LLM abstraction layer
+├── rag_etl_pipeline.py         # ETL with scheduled scraping
+├── rag_service.py              # Main RAG service with hybrid search
+├── rag_evaluation.py           # Feedback & metrics framework
+├── rag_api.py                  # FastAPI backend
+├── rag_ui.py                   # Streamlit UI
+├── docker-compose.yml          # Docker orchestration
+├── requirements.txt            # Python dependencies
+└── README.md                   # This file
 ```
 
 ## 🔧 Configuration

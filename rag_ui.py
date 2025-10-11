@@ -3,6 +3,7 @@ Streamlit UI for RAG Knowledge Search System
 Simple interface for queries, feedback, and metrics
 """
 
+import os
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
@@ -10,7 +11,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 # Configuration
-API_BASE_URL = "http://localhost:8000"
+API_BASE_URL = os.environ.get('API_URL', 'http://api:8000')
 
 # Page config
 st.set_page_config(
@@ -30,7 +31,7 @@ def query_api(query: str, user_id: str = None, top_k: int = 3):
         response = requests.post(
             f"{API_BASE_URL}/api/query",
             json={"query": query, "user_id": user_id, "top_k": top_k},
-            timeout=30
+            timeout=60
         )
         response.raise_for_status()
         return response.json()

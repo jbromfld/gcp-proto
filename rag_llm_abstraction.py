@@ -259,7 +259,7 @@ class LocalLLM(LLMProvider):
         return LLMResponse(
             content=result['response'],
             model=self.config.model_name,
-            tokens_used=result.get('eval_count'),
+            tokens_used=result.get('eval_count', result.get('prompt_eval_count', 0)),
             cost_estimate=0.0,  # Local is free!
             latency_ms=latency_ms
         )
@@ -314,10 +314,10 @@ LLM_CONFIGS = {
     ),
     'local_llama': LLMConfig(
         provider='local',
-        model_name='llama3.2',  # or 'mistral', 'phi', etc.
+        model_name='llama3.2',  # 3B model, use llama3.2:1b for low memory
         temperature=0.7,
         max_tokens=1024,
-        base_url='http://localhost:11434'
+        base_url='http://host.docker.internal:11434'  # Native Ollama on macOS
     )
 }
 

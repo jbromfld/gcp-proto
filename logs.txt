@@ -1,0 +1,61 @@
+rag-api  | INFO:     Started server process [1]
+rag-api  | INFO:     Waiting for application startup.
+rag-api  | INFO:root:Connecting to Elasticsearch at http://elasticsearch:9200
+rag-api  | INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: cpu
+rag-api  | INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+rag-api  | INFO:rag_embeddings:Initialized local embeddings: all-MiniLM-L6-v2
+rag-api  | INFO:rag_llm_abstraction:Initialized local LLM: llama3.2
+rag-api  | INFO:elastic_transport.transport:HEAD http://elasticsearch:9200/knowledge_base [status:200 duration:0.009s]
+rag-api  | INFO:rag_etl_pipeline:Index knowledge_base already exists
+rag-api  | INFO:elastic_transport.transport:HEAD http://elasticsearch:9200/query_logs [status:404 duration:0.002s]
+rag-api  | INFO:elastic_transport.transport:PUT http://elasticsearch:9200/query_logs [status:200 duration:0.090s]
+rag-api  | INFO:rag_evaluation:Created feedback index: query_logs
+rag-api  | INFO:rag_api:RAG system initialized successfully
+rag-api  | INFO:rag_api:Using embedding model: all-MiniLM-L6-v2
+rag-api  | INFO:rag_api:Using LLM: llama3.2
+rag-api  | INFO:     Application startup complete.
+rag-api  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+rag-api  | INFO:     127.0.0.1:59594 - "GET / HTTP/1.1" 200 OK
+rag-api  | INFO:     127.0.0.1:47368 - "GET / HTTP/1.1" 200 OK
+rag-api  | Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 10.43it/s]
+rag-api  | INFO:elastic_transport.transport:POST http://elasticsearch:9200/knowledge_base/_search [status:200 duration:0.083s]
+rag-api  | INFO:rag_service:Retrieved 3 results in 193ms
+rag-api  | INFO:rag_service:Selected 2 docs within 1453 token limit
+rag-api  | ERROR:rag_api:Query failed: 404 Client Error: Not Found for url: http://ollama:11434/api/chat
+rag-api  | Traceback (most recent call last):
+rag-api  |   File "/app/rag_api.py", line 192, in query_endpoint
+rag-api  |     response = rag_service.query(
+rag-api  |                ^^^^^^^^^^^^^^^^^^
+rag-api  |   File "/app/rag_service.py", line 258, in query
+rag-api  |     llm_response = self.llm.generate_with_context(
+rag-api  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+rag-api  |   File "/app/rag_llm_abstraction.py", line 282, in generate_with_context
+rag-api  |     return self.generate(prompt, system_prompt)
+rag-api  | INFO:     172.18.0.6:52110 - "POST /api/query HTTP/1.1" 500 Internal Server Error
+rag-api  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+rag-api  |   File "/app/rag_llm_abstraction.py", line 260, in generate
+rag-api  |     response.raise_for_status()
+rag-api  |   File "/usr/local/lib/python3.11/site-packages/requests/models.py", line 1026, in raise_for_status
+rag-api  |     raise HTTPError(http_error_msg, response=self)
+rag-api  | requests.exceptions.HTTPError: 404 Client Error: Not Found for url: http://ollama:11434/api/chat
+rag-api  | Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 19.77it/s]
+rag-api  | INFO:elastic_transport.transport:POST http://elasticsearch:9200/knowledge_base/_search [status:200 duration:0.008s]
+rag-api  | INFO:rag_service:Retrieved 3 results in 62ms
+rag-api  | INFO:rag_service:Selected 2 docs within 1453 token limit
+rag-api  | ERROR:rag_api:Query failed: 404 Client Error: Not Found for url: http://ollama:11434/api/chat
+rag-api  | Traceback (most recent call last):
+rag-api  |   File "/app/rag_api.py", line 192, in query_endpoint
+rag-api  |     response = rag_service.query(
+rag-api  |                ^^^^^^^^^^^^^^^^^^
+rag-api  |   File "/app/rag_service.py", line 258, in query
+rag-api  |     llm_response = self.llm.generate_with_context(
+rag-api  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+rag-api  |   File "/app/rag_llm_abstraction.py", line 282, in generate_with_context
+rag-api  |     return self.generate(prompt, system_prompt)
+rag-api  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+rag-api  |   File "/app/rag_llm_abstraction.py", line 260, in generate
+rag-api  |     response.raise_for_status()
+rag-api  |   File "/usr/local/lib/python3.11/site-packages/requests/models.py", line 1026, in raise_for_status
+rag-api  |     raise HTTPError(http_error_msg, response=self)
+rag-api  | requests.exceptions.HTTPError: 404 Client Error: Not Found for url: http://ollama:11434/api/chat
+rag-api  | INFO:     172.18.0.6:52114 - "POST /api/query HTTP/1.1" 500 Internal Server Error

@@ -5,6 +5,7 @@ Supports scheduled re-scraping (default: 24 hours)
 
 import hashlib
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
@@ -413,7 +414,9 @@ class ScheduledETL:
 # Example usage
 if __name__ == "__main__":
     # Setup
-    es_client = Elasticsearch(['http://localhost:9200'])
+    es_url = os.environ.get('ELASTICSEARCH_URL', 'http://elasticsearch:9200')
+    es_client = Elasticsearch([es_url])
+    logging.info(f"Connected to Elasticsearch at {es_url}")
     
     # Use local embeddings for testing
     embedding_config = EMBEDDING_CONFIGS['local_minilm']

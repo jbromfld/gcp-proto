@@ -16,10 +16,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY src /app/src/
-
-# Add src directory to Python path
-ENV PYTHONPATH=/app
+COPY rag_etl_pipeline.py .
+COPY rag_embeddings.py .
 
 # Create script to run ETL scheduler
 RUN echo '#!/usr/bin/env python3\n\
@@ -61,4 +59,4 @@ RUN chmod +x run_etl.py
 ENV PYTHONUNBUFFERED=1
 
 # Run ETL scheduler
-CMD ["python3", "-m", "src.etl.run_etl"]
+CMD ["python3", "run_etl.py"]
