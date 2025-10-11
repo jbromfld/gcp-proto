@@ -115,9 +115,19 @@ async def startup_event():
         es_url = os.environ.get('ELASTICSEARCH_URL', 'http://elasticsearch:9200')
         logging.info(f"Connecting to Elasticsearch at {es_url}")
         
-        # Default to local models for POC
-        embedding_config = EMBEDDING_CONFIGS['local_minilm']
-        llm_config = LLM_CONFIGS['local_llama']
+        # Use provider from environment (defaults to Vertex AI on Cloud Run)
+        embedding_provider = os.environ.get('EMBEDDING_PROVIDER', 'local')
+        llm_provider = os.environ.get('LLM_PROVIDER', 'local')
+        
+        if embedding_provider == 'vertex':
+            embedding_config = EMBEDDING_CONFIGS['vertex_gecko']
+        else:
+            embedding_config = EMBEDDING_CONFIGS['local_minilm']
+            
+        if llm_provider == 'vertex':
+            llm_config = LLM_CONFIGS['vertex_gemini']
+        else:
+            llm_config = LLM_CONFIGS['local_llama']
         
         # Create components
         embedder = EmbeddingFactory.create(embedding_config)
