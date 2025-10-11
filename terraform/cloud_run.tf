@@ -21,7 +21,7 @@ resource "google_cloud_run_service" "api" {
           name = "ELASTICSEARCH_URL"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret.elasticsearch_url.secret_id
+              name = google_secret_manager_secret.elasticsearch_url[0].secret_id
               key  = "latest"
             }
           }
@@ -31,7 +31,7 @@ resource "google_cloud_run_service" "api" {
           name = "ELASTICSEARCH_PASSWORD"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret.elasticsearch_password.secret_id
+              name = google_secret_manager_secret.elasticsearch_password[0].secret_id
               key  = "latest"
             }
           }
@@ -79,8 +79,6 @@ resource "google_cloud_run_service" "api" {
 
   depends_on = [
     google_project_service.required_apis,
-    google_secret_manager_secret_version.elasticsearch_url,
-    google_secret_manager_secret_version.elasticsearch_password,
   ]
 }
 
@@ -154,7 +152,7 @@ resource "google_cloud_run_service" "etl" {
           name = "ELASTICSEARCH_URL"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret.elasticsearch_url.secret_id
+              name = google_secret_manager_secret.elasticsearch_url[0].secret_id
               key  = "latest"
             }
           }
@@ -164,7 +162,7 @@ resource "google_cloud_run_service" "etl" {
           name = "ELASTICSEARCH_PASSWORD"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret.elasticsearch_password.secret_id
+              name = google_secret_manager_secret.elasticsearch_password[0].secret_id
               key  = "latest"
             }
           }

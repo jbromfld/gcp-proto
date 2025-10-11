@@ -65,26 +65,7 @@ resource "google_project_iam_member" "rag_service_permissions" {
   member  = "serviceAccount:${google_service_account.rag_service.email}"
 }
 
-# Secret for Elasticsearch credentials
-resource "google_secret_manager_secret" "elasticsearch_url" {
-  secret_id = "elasticsearch-url"
-
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.required_apis]
-}
-
-resource "google_secret_manager_secret" "elasticsearch_password" {
-  secret_id = "elasticsearch-password"
-
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.required_apis]
-}
+# Secrets are now managed in secrets.tf
 
 # VPC Connector for Cloud Run to access Elasticsearch (if using GKE)
 resource "google_vpc_access_connector" "connector" {

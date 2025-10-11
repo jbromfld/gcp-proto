@@ -1,3 +1,26 @@
+# Secret for Elasticsearch credentials (only if using Elastic Cloud)
+resource "google_secret_manager_secret" "elasticsearch_url" {
+  count     = var.use_gce_elasticsearch ? 0 : 1
+  secret_id = "elasticsearch-url"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret" "elasticsearch_password" {
+  count     = var.use_gce_elasticsearch ? 0 : 1
+  secret_id = "elasticsearch-password"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
 # Secret versions (only created if using Elastic Cloud, not GCE)
 resource "google_secret_manager_secret_version" "elasticsearch_url" {
   count  = var.use_gce_elasticsearch ? 0 : 1
