@@ -1,5 +1,5 @@
 # Use Python 3.11 slim image as base
-# docker build -t us-central1-docker.pkg.dev/gcp-poc-474818/rag-system/rag-api:latest -f Dockerfile.api .
+# docker docker build --platform linux/amd64 -t us-central1-docker.pkg.dev/gcp-poc-474818/rag-system/rag-api:latest -f Dockerfile.api .
 # docker push us-central1-docker.pkg.dev/gcp-poc-474818/rag-system/rag-api:latest
 FROM python:3.11-slim
 

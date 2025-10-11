@@ -8,8 +8,6 @@ steps:
     args:
       - "build"
       - "-t"
-      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-api:${SHORT_SHA}"
-      - "-t"
       - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-api:latest"
       - "-f"
       - "Dockerfile.api"
@@ -21,8 +19,6 @@ steps:
     args:
       - "build"
       - "-t"
-      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-ui:${SHORT_SHA}"
-      - "-t"
       - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-ui:latest"
       - "-f"
       - "Dockerfile.ui"
@@ -33,8 +29,6 @@ steps:
     id: "build-etl"
     args:
       - "build"
-      - "-t"
-      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-etl:${SHORT_SHA}"
       - "-t"
       - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-etl:latest"
       - "-f"
@@ -72,47 +66,8 @@ steps:
       ]
     waitFor: ["build-etl"]
 
-  # Deploy API to Cloud Run
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    id: "deploy-api"
-    entrypoint: gcloud
-    args:
-      - "run"
-      - "deploy"
-      - "rag-api"
-      - "--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-api:${SHORT_SHA}"
-      - "--region=${_REGION}"
-      - "--platform=managed"
-      - "--allow-unauthenticated"
-    waitFor: ["push-api"]
-
-  # Deploy UI to Cloud Run
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    id: "deploy-ui"
-    entrypoint: gcloud
-    args:
-      - "run"
-      - "deploy"
-      - "rag-ui"
-      - "--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-ui:${SHORT_SHA}"
-      - "--region=${_REGION}"
-      - "--platform=managed"
-      - "--allow-unauthenticated"
-    waitFor: ["push-ui", "deploy-api"]
-
-  # Deploy ETL to Cloud Run
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    id: "deploy-etl"
-    entrypoint: gcloud
-    args:
-      - "run"
-      - "deploy"
-      - "rag-etl"
-      - "--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-etl:${SHORT_SHA}"
-      - "--region=${_REGION}"
-      - "--platform=managed"
-      - "--no-allow-unauthenticated"
-    waitFor: ["push-etl"]
+  # Deployment is handled by Terraform, not Cloud Build
+  # These steps are commented out - use terraform apply instead
 
 # Substitution variables
 substitutions:

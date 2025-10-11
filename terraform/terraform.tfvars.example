@@ -5,11 +5,11 @@ project_id     = "your-project-id"
 region         = "us-central1"
 
 # Elasticsearch configuration
-# Option 1: Self-hosted on GCE (Recommended - FREE or ~$30/mo)
+# Option 1: Self-hosted on GCE (Recommended - ~$30/mo)
 use_gce_elasticsearch      = true
-elasticsearch_machine_type = "e2-micro"  # FREE tier! Or e2-medium ($25/mo)
-elasticsearch_disk_size_gb = 30          # FREE tier! Or 50+ for production
-elasticsearch_use_preemptible = false    # Set true for dev to save 60%
+elasticsearch_machine_type = "e2-medium"  # $25/mo - e2-micro (FREE) has only 1GB RAM, not enough for Elasticsearch
+elasticsearch_disk_size_gb = 50           # ~$5/mo
+elasticsearch_use_preemptible = false     # Set true for dev to save 60%
 
 # Option 2: Elastic Cloud ($95+/mo) - Only uncomment if NOT using GCE
 # use_gce_elasticsearch  = false

@@ -79,8 +79,8 @@ variable "use_gce_elasticsearch" {
 variable "elasticsearch_machine_type" {
   description = "Machine type for Elasticsearch VM"
   type        = string
-  default     = "e2-medium" # 2 vCPU, 4GB RAM - ~$25/mo
-  # Options: e2-small ($12/mo), e2-medium ($25/mo), e2-standard-2 ($50/mo)
+  default     = "e2-medium" # 2 vCPU, 4GB RAM - ~$25/mo (e2-micro FREE tier has only 1GB - too small)
+  # Options: e2-micro ($0 - FREE, but only 1GB RAM), e2-medium ($25/mo), e2-standard-2 ($50/mo)
 }
 
 variable "elasticsearch_disk_size_gb" {
@@ -92,7 +92,7 @@ variable "elasticsearch_disk_size_gb" {
 variable "elasticsearch_heap_size" {
   description = "Elasticsearch JVM heap size (should be ~50% of RAM)"
   type        = string
-  default     = "2g" # For e2-medium with 4GB RAM
+  default     = "2g" # For e2-medium with 4GB RAM (use 512m for e2-micro if using free tier)
 }
 
 variable "elasticsearch_use_preemptible" {
