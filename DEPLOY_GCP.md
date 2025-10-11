@@ -29,7 +29,7 @@ User → Cloud Load Balancer → Cloud Run (UI:8501)
 
 ```bash
 # Create new project (or use existing)
-gcloud projects create gcp-poc-474818 --name="RAG System"
+gcloud projects create your-project-name --name="RAG System"
 
 # Set as current project
 gcloud config set project your-project-id

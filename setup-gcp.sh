@@ -19,8 +19,13 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 # Check if .env.gcp exists
 if [ ! -f ".env.gcp" ]; then
     log_error ".env.gcp not found. Creating from template..."
-    cp .env.gcp.template .env.gcp
-    log_warning "Please edit .env.gcp with your GCP project details"
+    cp gcp-configs/env.template .env.gcp
+    log_warning "Please edit .env.gcp with your settings:"
+    log_warning "  1. Set GCP_PROJECT_ID to your GCP project ID"
+    log_warning "  2. Choose Elasticsearch option (GCE recommended for free/low cost)"
+    log_warning "  3. Update SCRAPE_URLS if needed"
+    echo ""
+    log_info "After editing, run this script again: ./setup-gcp.sh"
     exit 1
 fi
 

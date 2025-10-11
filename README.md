@@ -1,5 +1,7 @@
 # RAG Knowledge Search System
 
+> **🚀 Ready to deploy to GCP?** See [SETUP_INSTRUCTIONS.md](SETUP_INSTRUCTIONS.md) for step-by-step guide!
+
 A production-ready Retrieval-Augmented Generation (RAG) system with multi-cloud support, evaluation framework, and automated data ingestion.
 
 ## 🌟 Features
