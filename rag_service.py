@@ -232,10 +232,26 @@ class RAGService:
         )
         retrieval_time = (time.time() - retrieval_start) * 1000
         
+        # Check if we have relevant documents
+        RELEVANCE_THRESHOLD = 3.0  # Minimum score for document to be considered relevant
+        
         if not retrieved_docs:
             logger.warning(f"No documents retrieved for query: {user_query}")
-            return self._create_no_results_response(
-                query_id, user_query, retrieval_time
+            # Still query LLM with general knowledge fallback
+            return self._query_llm_without_context(
+                query_id, user_query, user_id, retrieval_time, start_time
+            )
+        
+        # Check if retrieved documents are actually relevant
+        max_score = max(doc.score for doc in retrieved_docs)
+        if max_score < RELEVANCE_THRESHOLD:
+            logger.warning(
+                f"Retrieved documents below relevance threshold "
+                f"(max score: {max_score:.2f} < {RELEVANCE_THRESHOLD})"
+            )
+            # Use LLM general knowledge instead
+            return self._query_llm_without_context(
+                query_id, user_query, user_id, retrieval_time, start_time
             )
         
         # 2. Prepare context
@@ -296,31 +312,67 @@ class RAGService:
         
         return rag_response
     
-    def _create_no_results_response(
+    def _query_llm_without_context(
         self,
         query_id: str,
         user_query: str,
-        retrieval_time: float
+        user_id: Optional[str],
+        retrieval_time: float,
+        start_time: float
     ) -> RAGResponse:
-        """Create response when no documents are found"""
-        fallback_answer = (
-            "I couldn't find relevant information in the knowledge base to answer your question. "
-            "This might be because:\n"
-            "1. The topic isn't covered in our documentation\n"
-            "2. The question needs to be phrased differently\n"
-            "3. The information hasn't been indexed yet\n\n"
-            "Please try rephrasing your question or contact support for assistance."
+        """Query LLM without RAG context when no documents are found"""
+        generation_start = time.time()
+        
+        fallback_prompt = (
+            "No relevant documents were found in the knowledge base for this question. "
+            "Please answer the question using your general knowledge if possible. "
+            "If you don't know the answer, say so clearly and suggest the user contact support or rephrase their question."
         )
         
-        return RAGResponse(
+        llm_response = self.llm.generate(
+            prompt=user_query,
+            system_prompt=fallback_prompt
+        )
+        generation_time = (time.time() - generation_start) * 1000
+        total_time = (time.time() - start_time) * 1000
+        
+        # Prepend note to answer
+        answer_with_note = (
+            "⚠️ *No relevant documents found in the knowledge base. "
+            "Answering from general knowledge:*\n\n" + llm_response.content
+        )
+        
+        rag_response = RAGResponse(
             query_id=query_id,
-            answer=fallback_answer,
+            answer=answer_with_note,
             retrieved_docs=[],
             retrieval_time_ms=retrieval_time,
-            generation_time_ms=0,
-            total_time_ms=retrieval_time,
-            model_used="fallback"
+            generation_time_ms=generation_time,
+            total_time_ms=total_time,
+            model_used=llm_response.model + "_fallback",
+            cost_estimate=llm_response.cost_estimate,
+            tokens_used=llm_response.tokens_used
         )
+        
+        # Log the query
+        if self.feedback_store:
+            self._log_query(
+                query_id=query_id,
+                user_query=user_query,
+                user_id=user_id,
+                retrieved_docs=[],
+                llm_response=llm_response,
+                retrieval_time=retrieval_time,
+                generation_time=generation_time,
+                total_time=total_time
+            )
+        
+        logger.info(
+            f"Query answered from general knowledge in {total_time:.0f}ms "
+            f"(no documents retrieved)"
+        )
+        
+        return rag_response
     
     def _log_query(
         self,

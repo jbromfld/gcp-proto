@@ -272,9 +272,9 @@ async def metrics_endpoint(days: int = 7):
             period_end=metrics.period_end,
             total_queries=metrics.total_queries,
             thumbs_up_rate=metrics.thumbs_up_rate,
-            avg_response_time_ms=metrics.avg_response_time_ms,
-            p95_latency_ms=metrics.p95_latency_ms,
-            total_cost=metrics.total_cost
+            avg_response_time_ms=metrics.avg_total_time_ms or 0.0,
+            p95_latency_ms=metrics.p95_time_ms or 0.0,
+            total_cost=metrics.total_cost or 0.0
         )
     
     except Exception as e:

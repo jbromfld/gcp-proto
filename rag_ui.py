@@ -66,7 +66,7 @@ def get_metrics(days: int = 7):
         response = requests.get(
             f"{API_BASE_URL}/api/metrics",
             params={"days": days},
-            timeout=10
+            timeout=20
         )
         response.raise_for_status()
         return response.json()
@@ -122,7 +122,7 @@ if page == "Search":
     st.markdown("Ask questions about our documentation and get AI-powered answers with sources.")
     
     # Search box
-    col1, col2 = st.columns([4, 1])
+    col1, col2 = st.columns([2, 1], vertical_alignment="bottom")
     with col1:
         query = st.text_input(
             "Enter your question",
@@ -133,7 +133,8 @@ if page == "Search":
     with col2:
         top_k = st.selectbox("Results", [3, 5, 7, 10], index=0)
     
-    if st.button("Search", type="primary", use_container_width=True) or query:
+    # Only search when button is clicked
+    if st.button("Search", type="primary", use_container_width=True):
         if query:
             with st.spinner("Searching..."):
                 result = query_api(query, user_id="streamlit_user", top_k=top_k)
