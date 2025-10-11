@@ -1,0 +1,124 @@
+# Docker Compose for RAG Knowledge Search System
+# Includes: Elasticsearch, API server, UI, and optional Ollama
+
+version: '3.8'
+
+services:
+  # Elasticsearch for vector storage
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: rag-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - rag-network
+
+  # Ollama for local LLM (optional - remove if using cloud providers)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - rag-network
+    # Uncomment if you have GPU
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # FastAPI backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: rag-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - OLLAMA_URL=http://ollama:11434
+      - EMBEDDING_PROVIDER=local
+      - LLM_PROVIDER=local
+      # For cloud providers, set these:
+      # - EMBEDDING_PROVIDER=vertex
+      # - LLM_PROVIDER=vertex
+      # - GOOGLE_PROJECT_ID=your-project-id
+      # - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    volumes:
+      - ./credentials:/app/credentials:ro
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Streamlit UI
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: rag-ui
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://api:8000
+    depends_on:
+      - api
+    networks:
+      - rag-network
+
+  # ETL scheduler (runs in background)
+  etl:
+    build:
+      context: .
+      dockerfile: Dockerfile.etl
+    container_name: rag-etl
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - OLLAMA_URL=http://ollama:11434
+      - EMBEDDING_PROVIDER=local
+      - ETL_INTERVAL_HOURS=24
+      - SCRAPE_URLS=https://docs.python.org/3/tutorial/,https://fastapi.tiangolo.com/
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+volumes:
+  es-data:
+    driver: local
+  ollama-data:
+    driver: local
+
+networks:
+  rag-network:
+    driver: bridge

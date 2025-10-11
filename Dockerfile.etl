@@ -1,0 +1,64 @@
+# Use Python 3.11 slim image as base
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY src /app/src/
+
+# Add src directory to Python path
+ENV PYTHONPATH=/app
+
+# Create script to run ETL scheduler
+RUN echo '#!/usr/bin/env python3\n\
+from rag_etl_pipeline import *\n\
+from rag_embeddings import *\n\
+import os\n\
+\n\
+# Initialize components\n\
+es_client = Elasticsearch([os.environ["ELASTICSEARCH_URL"]])\n\
+embedding_config = EMBEDDING_CONFIGS["local_minilm"]\n\
+embedder = EmbeddingFactory.create(embedding_config)\n\
+\n\
+# Create index\n\
+indexer = ElasticsearchIndexer(es_client)\n\
+indexer.create_index(embedding_dim=embedder.dimensions)\n\
+\n\
+# Setup pipeline\n\
+chunker = DocumentChunker(chunk_size=500, overlap=50)\n\
+pipeline = ETLPipeline(embedder, indexer, chunker)\n\
+\n\
+# Get URLs from environment\n\
+scrape_urls = os.environ["SCRAPE_URLS"].split(",")\n\
+interval_hours = int(os.environ.get("ETL_INTERVAL_HOURS", "24"))\n\
+\n\
+# Create and run scheduler\n\
+scheduler = ScheduledETL(\n\
+    pipeline=pipeline,\n\
+    scrape_urls=scrape_urls,\n\
+    interval_hours=interval_hours\n\
+)\n\
+\n\
+print("Starting ETL scheduler...")\n\
+scheduler.run_loop()' > run_etl.py
+
+# Make script executable
+RUN chmod +x run_etl.py
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Run ETL scheduler
+CMD ["python3", "-m", "src.etl.run_etl"]
