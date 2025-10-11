@@ -12,9 +12,9 @@ import logging
 from elasticsearch import Elasticsearch
 import numpy as np
 
-from src.core.rag_embeddings import EmbeddingProvider
-from src.core.rag_llm_abstraction import LLMProvider, LLMResponse
-from src.etl.rag_evaluation import FeedbackStore, QueryLog
+from rag_embeddings import EmbeddingProvider
+from rag_llm_abstraction import LLMProvider, LLMResponse
+from rag_evaluation import FeedbackStore, QueryLog
 
 logger = logging.getLogger(__name__)
 

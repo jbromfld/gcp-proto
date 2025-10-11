@@ -1,6 +1,4 @@
-# Docker Compose for RAG Knowledge Search System
-# Includes: Elasticsearch, API server, UI, and optional Ollama
-
+# Docker Compose for RAG Knowledge Search System - Development Setup
 version: '3.8'
 
 services:
@@ -11,41 +9,83 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"  # Reduced memory for local dev
+      - cluster.name=rag-cluster
+      - node.name=rag-single-node
     ports:
       - "9200:9200"
-      - "9300:9300"
     volumes:
       - es-data:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 3
     networks:
       - rag-network
 
-  # Ollama for local LLM (optional - remove if using cloud providers)
-  ollama:
-    image: ollama/ollama:latest
-    container_name: rag-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    networks:
-      - rag-network
-    # Uncomment if you have GPU
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-
-  # FastAPI backend
+  # FastAPI backend with hot-reload
   api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      target: development
+    container_name: rag-api
+    command: uvicorn rag_api:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - LLM_PROVIDER=local
+      - LLM_HOST=http://ollama:11434
+      - EMBEDDING_PROVIDER=local
+      - PYTHONPATH=/app
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Streamlit UI with hot-reload
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+      target: development
+    container_name: rag-ui
+    command: streamlit run rag_ui.py --server.port 8501 --server.address 0.0.0.0
+    volumes:
+      - .:/app
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+      - PYTHONPATH=/app
+    depends_on:
+      - api
+    networks:
+      - rag-network
+
+# Networks and volumes configuration
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  es-data:
+    driver: local
+  ollama-data:
+    driver: local
     build:
       context: .
       dockerfile: Dockerfile.api

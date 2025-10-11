@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup
 from elasticsearch import Elasticsearch
 import numpy as np
 
-from src.core.rag_embeddings import EmbeddingProvider, EmbeddingFactory, EMBEDDING_CONFIGS
+from rag_embeddings import EmbeddingProvider, EmbeddingFactory, EMBEDDING_CONFIGS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
