@@ -74,7 +74,18 @@ echo 'your-elastic-password' | \
     gcloud secrets versions add elasticsearch-password --data-file=-
 ```
 
-**Where to get Elastic Cloud credentials:**
+**Recommended: Use FREE GCE Elasticsearch:**
+```bash
+# Option 1: Using Terraform (easiest)
+cd terraform
+terraform apply -var="use_gce_elasticsearch=true" \
+                -var="elasticsearch_machine_type=e2-micro"
+
+# Option 2: Manual setup
+# See docs/ELASTICSEARCH_GCE.md for 5-minute setup
+```
+
+**Or use Elastic Cloud ($95/mo):**
 1. Go to https://cloud.elastic.co/
 2. Create deployment → Choose GCP
 3. Copy the "Cloud ID" or "Elasticsearch endpoint"
@@ -88,19 +99,26 @@ The service account `rag-service@PROJECT-ID.iam.gserviceaccount.com` automatical
 
 ## Cost Breakdown
 
+### Development (FREE! 🎉)
+
 | Service | Usage | Monthly Cost |
 |---------|-------|--------------|
-| Cloud Run API | ~100K requests | $5-15 |
-| Cloud Run UI | ~50K requests | $3-8 |
-| Elastic Cloud | Basic tier | $95 |
-| Vertex AI Gemini Flash | 10K queries | $5-10 |
-| Vertex AI Embeddings | 100K docs | $2-5 |
-| **TOTAL** | | **~$110-133** |
+| Cloud Run | Free tier (2M requests) | **$0** |
+| **Elasticsearch (e2-micro)** | Always-free tier | **$0** |
+| Disk (30GB) | Always-free tier | **$0** |
+| Vertex AI | <100 queries/day | **$0.50-1** |
+| **TOTAL** | | **~$0.50-1/mo** |
 
-**Free tier:**
-- Cloud Run: 2M requests/month free
-- Secret Manager: 6 secrets free
-- Artifact Registry: 0.5GB free
+### Production (Low Cost)
+
+| Service | Usage | Monthly Cost |
+|---------|-------|--------------|
+| Cloud Run | Baseline | $10-20 |
+| **Elasticsearch (e2-medium)** | 4GB RAM, 50GB disk | **$30** |
+| Vertex AI | 1K queries/day | $5-10 |
+| **TOTAL** | | **$45-60/mo** |
+
+**vs Elastic Cloud:** $95/mo minimum → **Save 60-75%!**
 
 ## Terraform Option (IaC)
 

@@ -29,7 +29,7 @@ User → Cloud Load Balancer → Cloud Run (UI:8501)
 
 ```bash
 # Create new project (or use existing)
-gcloud projects create your-project-id --name="RAG System"
+gcloud projects create gcp-poc-474818 --name="RAG System"
 
 # Set as current project
 gcloud config set project your-project-id
@@ -72,29 +72,40 @@ This will:
 
 ## Step 2: Set Up Elasticsearch
 
-### Option A: Elastic Cloud (Recommended)
+### Option A: Self-Hosted on GCE (Recommended - Free/Low Cost!)
 
-1. **Sign up**: https://cloud.elastic.co/
-2. **Create deployment**:
-   - Choose "GCP" as cloud provider
-   - Select same region as your Cloud Run services
-   - Choose "Optimized for GCP" template
-   - Select tier (starts at ~$95/mo)
+**Why GCE?** Can use Google's **free tier** (e2-micro VM) or pay ~$25-30/mo vs $95/mo for Elastic Cloud!
 
-3. **Get credentials**:
-   ```bash
-   # After deployment, copy the Cloud ID and password
-   # Update secrets:
-   echo 'https://your-deployment.es.REGION.gcp.cloud.es.io:9243' | \
-       gcloud secrets versions add elasticsearch-url --data-file=-
-   
-   echo 'your-elastic-password' | \
-       gcloud secrets versions add elasticsearch-password --data-file=-
-   ```
+**Quick setup:**
+```bash
+# Using Terraform (easiest)
+cd terraform
+terraform apply -var="use_gce_elasticsearch=true"
 
-### Option B: Self-Hosted on GKE
+# Get the Elasticsearch IP
+terraform output elasticsearch_internal_ip
+```
 
-See `docs/ELASTICSEARCH_GKE.md` for detailed GKE setup.
+**Manual setup (5 minutes):**
+See detailed guide in `docs/ELASTICSEARCH_GCE.md`
+
+**What you get:**
+- ✅ Elasticsearch 8.11 in Docker on GCE
+- ✅ Persistent disk for data
+- ✅ Automatic restarts
+- ✅ **FREE** if using e2-micro (Google's always-free tier)!
+
+### Option B: Elastic Cloud (Managed, but $95/mo)
+
+1. Sign up at https://cloud.elastic.co/
+2. Create GCP deployment in us-central1
+3. Copy URL and password to Secret Manager
+
+See `docs/ELASTICSEARCH_SETUP.md` for Elastic Cloud details.
+
+### Option C: GKE Cluster (For Enterprise)
+
+See `docs/ELASTICSEARCH_SETUP.md` for GKE setup (~$200+/mo).
 
 ## Step 3: Deploy Services
 
@@ -258,29 +269,46 @@ open "https://console.cloud.google.com/monitoring?project=$GCP_PROJECT_ID"
 
 ## Cost Optimization
 
-### Cloud Run Costs
+### Recommended Setup (Free Tier!)
 
-- **Minimum instances = 0**: Pay only when processing requests
-- **Scale to zero**: No cost when idle
-- **CPU throttling**: Enabled (reduces cost between requests)
+Using Google Cloud's always-free tier:
+
+| Component | Free Tier | Cost |
+|-----------|-----------|------|
+| Cloud Run | 2M requests/mo | **FREE** |
+| Elasticsearch (e2-micro) | 1 VM always-free | **FREE** |
+| Disk (30GB) | Always-free tier | **FREE** |
+| Vertex AI | No free tier | ~$5-10/mo |
+| **TOTAL** | | **$5-10/mo** 🎉 |
+
+### Production Setup (Low Cost)
+
+| Component | Config | Monthly Cost |
+|-----------|--------|--------------|
+| Cloud Run (API+UI+ETL) | Baseline | $10-30 |
+| **Elasticsearch (GCE e2-medium)** | 4GB RAM, 50GB disk | **$30** |
+| Vertex AI (1K queries/day) | Gemini Flash + Embeddings | $5-10 |
+| **TOTAL** | | **$45-70/mo** |
+
+### Enterprise Setup
+
+| Component | Config | Monthly Cost |
+|-----------|--------|--------------|
+| Cloud Run | Higher limits | $30-100 |
+| **Elastic Cloud** | Managed | **$95-190** |
+| Vertex AI (10K queries/day) | Higher usage | $50-100 |
+| **TOTAL** | | **$175-390/mo** |
+
+**Savings with GCE Elasticsearch: 60-75%**
 
 ### Vertex AI Costs
 
-| Service | Model | Cost (estimate) |
-|---------|-------|-----------------|
-| LLM | Gemini Flash | $0.075/1M input tokens, $0.30/1M output |
+| Service | Model | Cost |
+|---------|-------|------|
+| LLM | Gemini Flash | $0.075/1M input, $0.30/1M output |
 | Embeddings | text-embedding-004 | $0.025/1M tokens |
 
-Example: 1,000 queries/day ≈ $5-10/month
-
-### Total Estimated Costs
-
-| Component | Monthly Cost |
-|-----------|--------------|
-| Cloud Run (API+UI+ETL) | $10-30 |
-| Elastic Cloud (Basic) | $95+ |
-| Vertex AI (1K queries/day) | $5-10 |
-| **Total** | **$110-135/mo** |
+**Example**: 1,000 queries/day ≈ $5-10/month
 
 ## Scaling
 

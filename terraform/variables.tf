@@ -64,3 +64,38 @@ variable "allow_unauthenticated" {
   default     = true # Set to false for production with IAP/authentication
 }
 
+# ============================================
+# Elasticsearch on GCE (Cost-effective option)
+# ============================================
+
+variable "use_gce_elasticsearch" {
+  description = "Deploy Elasticsearch on GCE instead of using Elastic Cloud"
+  type        = bool
+  default     = true # Set to false if using Elastic Cloud
+}
+
+variable "elasticsearch_machine_type" {
+  description = "Machine type for Elasticsearch VM"
+  type        = string
+  default     = "e2-medium" # 2 vCPU, 4GB RAM - ~$25/mo
+  # Options: e2-small ($12/mo), e2-medium ($25/mo), e2-standard-2 ($50/mo)
+}
+
+variable "elasticsearch_disk_size_gb" {
+  description = "Size of persistent disk for Elasticsearch data (GB)"
+  type        = number
+  default     = 50 # ~$5/mo for pd-balanced
+}
+
+variable "elasticsearch_heap_size" {
+  description = "Elasticsearch JVM heap size (should be ~50% of RAM)"
+  type        = string
+  default     = "2g" # For e2-medium with 4GB RAM
+}
+
+variable "elasticsearch_use_preemptible" {
+  description = "Use preemptible VM for Elasticsearch (cheaper but can be terminated)"
+  type        = bool
+  default     = false # Set to true for dev/testing to save 60-80%
+}
+
