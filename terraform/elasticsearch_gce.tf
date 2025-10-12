@@ -128,6 +128,25 @@ resource "google_compute_instance" "elasticsearch" {
   depends_on = [google_compute_disk.elasticsearch_data]
 }
 
+# Wait for Elasticsearch to fully initialize before deploying Cloud Run
+resource "time_sleep" "wait_for_elasticsearch" {
+  count = var.use_gce_elasticsearch ? 1 : 0
+  
+  depends_on = [google_compute_instance.elasticsearch]
+  
+  # Wait 5 minutes for:
+  # - VM boot (~30s)
+  # - Docker installation (~2 min)
+  # - ES container start (~1 min)
+  # - ES initialization (~2 min)
+  create_duration = "300s"  # 5 minutes
+  
+  triggers = {
+    # Re-wait if instance is recreated
+    instance_id = google_compute_instance.elasticsearch[0].instance_id
+  }
+}
+
 # Output Elasticsearch internal IP
 output "elasticsearch_internal_ip" {
   description = "Internal IP of Elasticsearch instance"

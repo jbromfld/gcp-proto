@@ -69,6 +69,7 @@ resource "google_cloud_run_service" "api" {
 
   depends_on = [
     google_project_service.required_apis,
+    time_sleep.wait_for_elasticsearch,
   ]
 }
 
