@@ -5,6 +5,7 @@ Embedding abstraction layer supporting multiple backends:
 - Local models (testing/development)
 """
 
+import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 import numpy as np
@@ -200,8 +201,8 @@ EMBEDDING_CONFIGS = {
         provider='vertex',
         model_name='textembedding-gecko@003',
         dimensions=768,
-        project_id='your-project-id',
-        location='us-central1'
+        project_id=os.environ.get('GOOGLE_PROJECT_ID', 'your-project-id'),
+        location=os.environ.get('GOOGLE_REGION', 'us-central1')
     ),
     'azure_ada': EmbeddingConfig(
         provider='azure',

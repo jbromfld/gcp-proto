@@ -5,6 +5,7 @@ LLM abstraction layer supporting multiple backends:
 - Local models (Ollama, llama.cpp)
 """
 
+import os
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional
 from dataclasses import dataclass
@@ -302,7 +303,7 @@ LLM_CONFIGS = {
         model_name='gemini-1.5-flash',
         temperature=0.7,
         max_tokens=1024,
-        project_id='your-project-id'
+        project_id=os.environ.get('GOOGLE_PROJECT_ID', 'your-project-id')
     ),
     'azure_gpt4': LLMConfig(
         provider='azure',

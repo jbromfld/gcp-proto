@@ -7,12 +7,14 @@ import hashlib
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 from dataclasses import dataclass
 import time
 
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
+import fnmatch
 from elasticsearch import Elasticsearch
 import numpy as np
 
@@ -120,6 +122,167 @@ class DocumentScraper:
             time.sleep(0.5)
         
         return documents
+
+
+class RecursiveWebScraper:
+    """
+    Enhanced scraper with recursive crawling, depth limits, and pattern matching
+    Supports wildcards like docs.python.com/* for full site scraping
+    """
+    
+    def __init__(self, max_depth: int = 2, max_pages: int = 50, 
+                 include_patterns: Optional[List[str]] = None,
+                 exclude_patterns: Optional[List[str]] = None):
+        self.max_depth = max_depth
+        self.max_pages = max_pages
+        self.include_patterns = include_patterns or []
+        self.exclude_patterns = exclude_patterns or ['*/search*', '*/login*', '*/logout*']
+        self.visited: Set[str] = set()
+        self.documents: List[Document] = []
+    
+    def _should_crawl_url(self, url: str, base_domain: str) -> bool:
+        """Determine if a URL should be crawled based on patterns and domain"""
+        parsed = urlparse(url)
+        
+        # Must be same domain
+        if not parsed.netloc or parsed.netloc != base_domain:
+            return False
+        
+        # Check exclude patterns first
+        for pattern in self.exclude_patterns:
+            if fnmatch.fnmatch(url, pattern):
+                return False
+        
+        # If include patterns specified, URL must match at least one
+        if self.include_patterns:
+            return any(fnmatch.fnmatch(url, pattern) for pattern in self.include_patterns)
+        
+        return True
+    
+    def _extract_links(self, soup: BeautifulSoup, current_url: str) -> List[str]:
+        """Extract and normalize links from a page"""
+        links = []
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag['href']
+            
+            # Skip anchors, mailto, tel, javascript
+            if href.startswith(('#', 'mailto:', 'tel:', 'javascript:')):
+                continue
+            
+            # Make absolute URL
+            absolute_url = urljoin(current_url, href)
+            
+            # Remove fragment
+            absolute_url = absolute_url.split('#')[0]
+            
+            links.append(absolute_url)
+        
+        return links
+    
+    def crawl(self, start_url: str) -> List[Document]:
+        """
+        Recursively crawl starting from start_url
+        
+        Examples:
+            - crawl("https://docs.python.org/3/tutorial/") # Single page
+            - crawl("https://docs.python.org/3/*") # All pages under /3/
+        """
+        # Handle wildcard URLs
+        if '*' in start_url:
+            # Convert wildcard to base URL and pattern
+            base_url = start_url.split('*')[0].rstrip('/')
+            self.include_patterns.append(start_url)
+            logger.info(f"Wildcard detected: Starting from {base_url} with pattern {start_url}")
+        else:
+            base_url = start_url
+        
+        base_domain = urlparse(base_url).netloc
+        
+        # Start crawling
+        self._crawl_recursive(base_url, base_domain, depth=0)
+        
+        logger.info(f"Crawl complete: {len(self.documents)} documents, {len(self.visited)} pages visited")
+        return self.documents
+    
+    def _crawl_recursive(self, url: str, base_domain: str, depth: int):
+        """Recursively crawl pages"""
+        # Check limits
+        if depth > self.max_depth:
+            return
+        if len(self.documents) >= self.max_pages:
+            return
+        if url in self.visited:
+            return
+        
+        # Mark as visited
+        self.visited.add(url)
+        
+        # Scrape the page
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Create document
+            doc = self._create_document(url, soup)
+            if doc:
+                self.documents.append(doc)
+                logger.info(f"[Depth {depth}] Scraped: {doc.title[:60]}... ({len(self.documents)}/{self.max_pages})")
+            
+            # Extract and crawl links if not at max depth
+            if depth < self.max_depth and len(self.documents) < self.max_pages:
+                links = self._extract_links(soup, url)
+                
+                for link in links:
+                    if self._should_crawl_url(link, base_domain):
+                        time.sleep(0.5)  # Rate limiting
+                        self._crawl_recursive(link, base_domain, depth + 1)
+                        
+                        if len(self.documents) >= self.max_pages:
+                            break
+        
+        except Exception as e:
+            logger.warning(f"Error crawling {url}: {e}")
+    
+    def _create_document(self, url: str, soup: BeautifulSoup) -> Optional[Document]:
+        """Create a Document from scraped content"""
+        try:
+            # Remove script, style, nav, footer
+            for element in soup(['script', 'style', 'nav', 'footer', 'header', 'aside']):
+                element.decompose()
+            
+            # Get title
+            title = soup.find('title')
+            title = title.get_text().strip() if title else url
+            
+            # Get main content
+            main = soup.find('main') or soup.find('article') or soup.find('body')
+            if not main:
+                return None
+            
+            content = main.get_text(separator='\n', strip=True)
+            
+            # Skip if too short
+            if len(content) < 100:
+                return None
+            
+            # Create content hash for change detection
+            content_hash = hashlib.md5(content.encode()).hexdigest()
+            doc_id = hashlib.md5(url.encode()).hexdigest()
+            
+            return Document(
+                doc_id=doc_id,
+                title=title,
+                content=content,
+                source_url=url,
+                timestamp=datetime.now().isoformat(),
+                content_hash=content_hash
+            )
+        
+        except Exception as e:
+            logger.error(f"Error creating document from {url}: {e}")
+            return None
 
 
 class DocumentChunker:

@@ -18,8 +18,9 @@ from rag_llm_abstraction import LLMFactory, LLM_CONFIGS
 from rag_service import RAGService, HybridSearchEngine
 from rag_evaluation import FeedbackStore, FeedbackType
 from rag_etl_pipeline import (
-    ETLPipeline, ElasticsearchIndexer, DocumentChunker, ScheduledETL
+    ETLPipeline, ElasticsearchIndexer, DocumentChunker, ScheduledETL, RecursiveWebScraper
 )
+from rag_sources import SourceManager, KnowledgeSource, SourceType, SourceStatus
 from elasticsearch_client import create_elasticsearch_client
 
 logging.basicConfig(level=logging.INFO)
@@ -45,6 +46,7 @@ app.add_middleware(
 rag_service: Optional[RAGService] = None
 feedback_store: Optional[FeedbackStore] = None
 scheduled_etl: Optional[ScheduledETL] = None
+source_manager: Optional[SourceManager] = None
 
 
 # === Request/Response Models ===
@@ -107,7 +109,7 @@ class ConfigRequest(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize RAG system on startup"""
-    global rag_service, feedback_store, scheduled_etl
+    global rag_service, feedback_store, scheduled_etl, source_manager
     
     try:
         # Connect to Elasticsearch (with authentication support)
@@ -147,6 +149,10 @@ async def startup_event():
         # Create feedback store
         feedback_store = FeedbackStore(es_client)
         
+        # Create source manager
+        source_manager = SourceManager(es_client)
+        logger.info("Source manager initialized")
+        
         # Create RAG service
         rag_service = RAGService(
             search_engine=search_engine,
@@ -158,10 +164,8 @@ async def startup_event():
         chunker = DocumentChunker(chunk_size=500, overlap=50)
         etl_pipeline = ETLPipeline(embedder, indexer, chunker)
         
-        scrape_urls = [
-            "https://docs.python.org/3/tutorial/index.html",
-            "https://fastapi.tiangolo.com/"
-        ]
+        # Start with empty knowledge base - sources managed through admin UI
+        scrape_urls = []  # No default URLs - add via /api/admin/sources
         
         scheduled_etl = ScheduledETL(
             pipeline=etl_pipeline,
@@ -379,6 +383,234 @@ async def configure_endpoint(request: ConfigRequest):
             "llm_provider": request.llm_provider
         }
     }
+
+
+# === Source Management Endpoints ===
+
+class SourceRequest(BaseModel):
+    """Request model for adding a knowledge source"""
+    url: str = Field(..., description="URL or URL pattern (e.g., https://docs.python.org/3/*)")
+    title: Optional[str] = Field(None, description="Display title for the source")
+    description: Optional[str] = Field(None, description="Description of the source")
+    source_type: str = Field(default="web_recursive", description="Type: web_page, web_recursive, documentation")
+    max_depth: int = Field(default=2, description="Maximum crawl depth for recursive scraping", ge=1, le=5)
+    max_pages: int = Field(default=50, description="Maximum pages to scrape", ge=1, le=500)
+    include_patterns: Optional[List[str]] = Field(None, description="URL patterns to include (wildcards supported)")
+    exclude_patterns: Optional[List[str]] = Field(None, description="URL patterns to exclude")
+
+
+@app.post("/api/admin/sources")
+async def add_source(request: SourceRequest):
+    """Add a new knowledge source"""
+    if not source_manager:
+        raise HTTPException(status_code=503, detail="Source manager not initialized")
+    
+    try:
+        import uuid
+        source_id = str(uuid.uuid4())
+        
+        source = KnowledgeSource(
+            source_id=source_id,
+            url=request.url,
+            title=request.title or request.url,
+            description=request.description,
+            source_type=SourceType(request.source_type),
+            max_depth=request.max_depth,
+            max_pages=request.max_pages,
+            include_patterns=request.include_patterns,
+            exclude_patterns=request.exclude_patterns,
+            status=SourceStatus.PENDING
+        )
+        
+        result = source_manager.add_source(source)
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "source_id": source_id,
+                "message": "Source added successfully",
+                "source": source.__dict__
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result["error"])
+    
+    except Exception as e:
+        logger.error(f"Failed to add source: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/sources")
+async def list_sources(status: Optional[str] = None):
+    """List all knowledge sources"""
+    if not source_manager:
+        raise HTTPException(status_code=503, detail="Source manager not initialized")
+    
+    try:
+        status_filter = SourceStatus(status) if status else None
+        sources = source_manager.list_sources(status=status_filter)
+        
+        return {
+            "success": True,
+            "count": len(sources),
+            "sources": [source.__dict__ for source in sources]
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to list sources: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/sources/{source_id}")
+async def get_source(source_id: str):
+    """Get a specific knowledge source"""
+    if not source_manager:
+        raise HTTPException(status_code=503, detail="Source manager not initialized")
+    
+    try:
+        source = source_manager.get_source(source_id)
+        
+        if source:
+            return {
+                "success": True,
+                "source": source.__dict__
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Source not found")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get source: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/sources/{source_id}")
+async def delete_source(source_id: str):
+    """Delete a knowledge source"""
+    if not source_manager:
+        raise HTTPException(status_code=503, detail="Source manager not initialized")
+    
+    try:
+        result = source_manager.delete_source(source_id)
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "message": "Source deleted successfully"
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result["error"])
+    
+    except Exception as e:
+        logger.error(f"Failed to delete source: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/sources/{source_id}/ingest")
+async def ingest_source(source_id: str, background_tasks: BackgroundTasks):
+    """Trigger ingestion for a specific source"""
+    if not source_manager or not scheduled_etl:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    try:
+        source = source_manager.get_source(source_id)
+        
+        if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+        
+        # Update status to in_progress
+        source_manager.update_source(source_id, {"status": SourceStatus.IN_PROGRESS.value})
+        
+        # Trigger ingestion in background
+        background_tasks.add_task(
+            ingest_source_background,
+            source_id,
+            source
+        )
+        
+        return {
+            "success": True,
+            "message": "Ingestion started",
+            "source_id": source_id
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to trigger ingestion: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def ingest_source_background(source_id: str, source: KnowledgeSource):
+    """Background task to ingest a source"""
+    try:
+        logger.info(f"Starting ingestion for source: {source.url}")
+        
+        # Create scraper with source configuration
+        scraper = RecursiveWebScraper(
+            max_depth=source.max_depth,
+            max_pages=source.max_pages,
+            include_patterns=source.include_patterns,
+            exclude_patterns=source.exclude_patterns
+        )
+        
+        # Scrape documents
+        documents = scraper.crawl(source.url)
+        
+        # Chunk and index
+        chunker = DocumentChunker(chunk_size=500, overlap=50)
+        chunks = []
+        for doc in documents:
+            doc_chunks = chunker.chunk_document(doc)
+            chunks.extend(doc_chunks)
+        
+        # Embed and index
+        embedder = scheduled_etl.pipeline.embedder
+        indexer = scheduled_etl.pipeline.indexer
+        
+        for chunk in chunks:
+            chunk.embedding = embedder.embed_query(chunk.content)
+        
+        indexer.index_chunks(chunks)
+        
+        # Update source with success stats
+        source_manager.update_ingestion_stats(
+            source_id=source_id,
+            pages_scraped=len(documents),
+            chunks_created=len(chunks),
+            status=SourceStatus.COMPLETED
+        )
+        
+        logger.info(f"Ingestion complete: {len(documents)} docs, {len(chunks)} chunks")
+    
+    except Exception as e:
+        logger.error(f"Ingestion failed for {source_id}: {e}", exc_info=True)
+        source_manager.update_ingestion_stats(
+            source_id=source_id,
+            pages_scraped=0,
+            chunks_created=0,
+            status=SourceStatus.FAILED,
+            error_message=str(e)
+        )
+
+
+@app.get("/api/admin/sources/stats")
+async def get_sources_stats():
+    """Get overall statistics for knowledge sources"""
+    if not source_manager:
+        raise HTTPException(status_code=503, detail="Source manager not initialized")
+    
+    try:
+        stats = source_manager.get_stats()
+        
+        return {
+            "success": True,
+            "stats": stats
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to get stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

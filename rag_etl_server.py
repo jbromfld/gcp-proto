@@ -56,17 +56,23 @@ async def health_check():
     return {"status": "healthy", "service": "rag-etl"}
 
 @app.post("/trigger")
-async def trigger_etl(background_tasks: BackgroundTasks):
-    """Trigger ETL pipeline execution"""
+async def trigger_etl(background_tasks: BackgroundTasks, urls: List[str] = None):
+    """
+    Trigger ETL pipeline execution
+    URLs can be provided in request body or via SCRAPE_URLS env var
+    """
     if not etl_pipeline:
         return {"error": "ETL pipeline not initialized"}, 500
     
-    # Get URLs from environment
-    scrape_urls_str = os.environ.get('SCRAPE_URLS', '')
-    scrape_urls = [url.strip() for url in scrape_urls_str.split(',') if url.strip()]
+    # Use URLs from request body if provided, otherwise fall back to env var
+    if urls:
+        scrape_urls = urls
+    else:
+        scrape_urls_str = os.environ.get('SCRAPE_URLS', '')
+        scrape_urls = [url.strip() for url in scrape_urls_str.split(',') if url.strip()]
     
     if not scrape_urls:
-        return {"error": "No SCRAPE_URLS configured"}, 400
+        return {"error": "No URLs provided. Send URLs in request body or configure SCRAPE_URLS"}, 400
     
     # Run ETL in background
     background_tasks.add_task(run_etl, scrape_urls)
