@@ -26,3 +26,10 @@ curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
   -d '{"query": "what is python?"}' | jq .
 ```
+
+## Quick setup for GCP
+```
+./setup-gcp.sh
+cd terraform && terraform init && terraform apply
+gcloud builds submit --config cloudbuild.yaml
+```
