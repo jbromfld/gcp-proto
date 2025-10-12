@@ -200,9 +200,21 @@ if page == "Search":
         
         for idx, item in enumerate(st.session_state.query_history[:5]):
             with st.expander(f"{item['query']} - {item['timestamp'].strftime('%H:%M:%S')}"):
-                st.markdown(item['result']['answer'][:300] + "...")
-                if st.button("View full response", key=f"history_{idx}"):
-                    st.session_state.selected_history = item
+                # Show preview
+                answer = item['result'].get('answer', '')
+                if len(answer) > 300:
+                    st.markdown(answer[:300] + "...")
+                    if st.button("View full response", key=f"history_{idx}"):
+                        st.markdown("**Full Response:**")
+                        st.markdown(answer)
+                        
+                        # Show retrieved docs if any
+                        if item['result'].get('retrieved_docs'):
+                            st.markdown("**Retrieved Documents:**")
+                            for doc in item['result']['retrieved_docs']:
+                                st.caption(f"📄 {doc.get('title', 'Untitled')} (score: {doc.get('score', 0):.2f})")
+                else:
+                    st.markdown(answer)
 
 
 # === Metrics Page ===

@@ -125,14 +125,19 @@ class FeedbackStore:
             }
         }
         
-        if not self.es.indices.exists(index=self.index_name):
-            self.es.indices.create(index=self.index_name, body=mapping)
+        try:
+            self.es.indices.create(index=self.index_name, mappings=mapping["mappings"])
             logger.info(f"Created feedback index: {self.index_name}")
+        except Exception as e:
+            if 'resource_already_exists_exception' in str(e):
+                logger.info(f"Index {self.index_name} already exists")
+            else:
+                raise
     
     def log_query(self, query_log: QueryLog):
         """Log a query execution"""
         doc = {k: v for k, v in asdict(query_log).items() if v is not None}
-        self.es.index(index=self.index_name, id=query_log.query_id, body=doc)
+        self.es.index(index=self.index_name, id=query_log.query_id, document=doc)
     
     def add_feedback(
         self,
@@ -155,7 +160,7 @@ class FeedbackStore:
         self.es.update(
             index=self.index_name,
             id=query_id,
-            body={"doc": feedback_data}
+            doc=feedback_data
         )
         logger.info(f"Added {feedback_type.value} feedback to query {query_id}")
     
@@ -211,7 +216,7 @@ class FeedbackStore:
             }
         }
         
-        result = self.es.search(index=self.index_name, body=query)
+        result = self.es.search(index=self.index_name, **query)
         aggs = result['aggregations']
         
         total_queries = aggs['total_queries']['value']
@@ -253,7 +258,7 @@ class FeedbackStore:
             }
         }
         
-        result = self.es.search(index=self.index_name, body=query)
+        result = self.es.search(index=self.index_name, **query)
         buckets = result['aggregations']['top_queries']['buckets']
         
         return [
@@ -277,7 +282,7 @@ class FeedbackStore:
             "_source": ["query_id", "user_query", "feedback_type", "feedback_rating", "feedback_comment"]
         }
         
-        result = self.es.search(index=self.index_name, body=query)
+        result = self.es.search(index=self.index_name, **query)
         
         return [
             {

@@ -277,7 +277,7 @@ async def metrics_endpoint(days: int = 7):
         raise HTTPException(status_code=503, detail="Feedback store not initialized")
     
     try:
-        end_time = datetime.now()
+        end_time = datetime.utcnow()
         start_time = end_time - timedelta(days=days)
         
         metrics = feedback_store.compute_metrics(start_time, end_time)

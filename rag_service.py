@@ -234,7 +234,7 @@ class RAGService:
         
         # Check if we have relevant documents
         # Higher threshold = stricter relevance check
-        RELEVANCE_THRESHOLD = 8.0  # Minimum score for document to be considered truly relevant
+        RELEVANCE_THRESHOLD = 3.0  # Minimum score for document to be considered truly relevant
         
         if not retrieved_docs:
             logger.warning(f"No documents retrieved for query: {user_query}")
