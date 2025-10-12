@@ -33,6 +33,20 @@ gcloud builds submit --config cloudbuild.yaml
 - **Local**: [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md)
 - **GCP**: [docs/GCP_DEPLOYMENT.md](docs/GCP_DEPLOYMENT.md)
 
+### GCP Cost Management
+
+**Pause for a week** (~$16/month for storage only):
+```bash
+./pause-gcp.sh   # Stops Elasticsearch VM, Cloud Run auto-scales to $0
+./resume-gcp.sh  # Starts everything back up in ~60 seconds
+```
+
+**Full shutdown** ($0/month):
+```bash
+cd terraform && terraform destroy  # Complete removal
+terraform apply                     # Rebuild from scratch (~15 mins)
+```
+
 ---
 
 ## 🌟 Features

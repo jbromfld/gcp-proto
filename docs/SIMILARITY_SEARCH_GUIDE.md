@@ -1252,6 +1252,1046 @@ python benchmark.py --store pgvector --queries test_queries.json
 # - Cost
 ```
 
+### Workflow 5: Benchmark Different Dimension Sizes
+
+**Test how embedding dimensions affect your specific use case:**
+
+This workflow helps you find the optimal balance between quality, speed, and cost for YOUR knowledge base.
+
+#### Step 1: Prepare Your Test Environment
+
+```bash
+# 1. Create a test queries file with YOUR actual queries
+cat > my_test_queries.json << 'EOF'
+[
+  {
+    "query": "How do I install FastAPI?",
+    "expected_source": "fastapi.tiangolo.com/installation",
+    "category": "installation"
+  },
+  {
+    "query": "What is dependency injection?",
+    "expected_source": "fastapi.tiangolo.com/advanced",
+    "category": "advanced"
+  },
+  {
+    "query": "How to add CORS middleware?",
+    "expected_source": "fastapi.tiangolo.com/tutorial",
+    "category": "middleware"
+  }
+]
+EOF
+
+# 2. Make sure you have content indexed (use Admin UI or ETL)
+# This workflow assumes you already have documents in your knowledge base
+```
+
+#### Step 2: Create the Benchmark Script
+
+```python
+#!/usr/bin/env python3
+# benchmark_dimensions.py - Compare different embedding dimensions
+
+import time
+import json
+import statistics
+from typing import List, Dict
+from sentence_transformers import SentenceTransformer
+from elasticsearch import Elasticsearch
+from rag_embeddings import create_embeddings, EmbeddingConfig
+
+# Test configurations
+DIMENSION_CONFIGS = [
+    {
+        "name": "Small (384 dims)",
+        "model": "sentence-transformers/all-MiniLM-L6-v2",
+        "dimensions": 384,
+        "index": "knowledge_base_384"
+    },
+    {
+        "name": "Medium (768 dims)",
+        "model": "sentence-transformers/all-mpnet-base-v2",
+        "dimensions": 768,
+        "index": "knowledge_base_768"
+    },
+    {
+        "name": "Large (1536 dims)",
+        "model": "sentence-transformers/all-mpnet-base-v2",  # Will pad/truncate
+        "dimensions": 1536,
+        "index": "knowledge_base_1536"
+    }
+]
+
+class DimensionBenchmark:
+    def __init__(self, es_url: str = "http://localhost:9200"):
+        self.es = Elasticsearch(es_url)
+        self.results = []
+    
+    def create_index(self, index_name: str, dimensions: int):
+        """Create an Elasticsearch index with specified dimensions"""
+        mapping = {
+            "mappings": {
+                "properties": {
+                    "content": {"type": "text"},
+                    "title": {"type": "text"},
+                    "embedding": {
+                        "type": "dense_vector",
+                        "dims": dimensions,
+                        "index": True,
+                        "similarity": "cosine",
+                        "index_options": {
+                            "type": "hnsw",
+                            "m": 16,
+                            "ef_construction": 100
+                        }
+                    },
+                    "source_url": {"type": "keyword"},
+                    "timestamp": {"type": "date"}
+                }
+            }
+        }
+        
+        # Delete if exists
+        if self.es.indices.exists(index=index_name):
+            print(f"  Deleting existing index: {index_name}")
+            self.es.indices.delete(index=index_name)
+        
+        # Create new
+        self.es.indices.create(index=index_name, mappings=mapping["mappings"])
+        print(f"  Created index: {index_name} with {dimensions} dimensions")
+    
+    def reindex_with_dimensions(self, source_index: str, target_index: str, 
+                               model_name: str, target_dims: int):
+        """Re-index documents with different embedding dimensions"""
+        print(f"\n  Re-indexing from {source_index} to {target_index}...")
+        
+        # Load the embedding model
+        model = SentenceTransformer(model_name)
+        
+        # Get all documents from source
+        query = {"query": {"match_all": {}}, "size": 10000}
+        response = self.es.search(index=source_index, **query)
+        docs = response['hits']['hits']
+        
+        print(f"  Found {len(docs)} documents to re-embed")
+        
+        # Re-embed and index
+        for i, doc in enumerate(docs):
+            source = doc['_source']
+            
+            # Generate new embedding with target model
+            embedding = model.encode(source['content']).tolist()
+            
+            # Pad or truncate to target dimensions
+            if len(embedding) < target_dims:
+                embedding = embedding + [0.0] * (target_dims - len(embedding))
+            elif len(embedding) > target_dims:
+                embedding = embedding[:target_dims]
+            
+            # Index document with new embedding
+            self.es.index(
+                index=target_index,
+                id=doc['_id'],
+                document={
+                    **source,
+                    "embedding": embedding
+                }
+            )
+            
+            if (i + 1) % 100 == 0:
+                print(f"  Processed {i + 1}/{len(docs)} documents")
+        
+        # Refresh index
+        self.es.indices.refresh(index=target_index)
+        print(f"  ✅ Re-indexing complete: {len(docs)} documents")
+    
+    def benchmark_config(self, config: Dict, test_queries: List[Dict]) -> Dict:
+        """Benchmark a specific dimension configuration"""
+        print(f"\n{'='*60}")
+        print(f"Testing: {config['name']}")
+        print(f"{'='*60}")
+        
+        model = SentenceTransformer(config['model'])
+        index = config['index']
+        dims = config['dimensions']
+        
+        # Metrics to track
+        query_times = []
+        relevance_scores = []
+        hits = 0
+        embedding_times = []
+        
+        for i, test in enumerate(test_queries, 1):
+            query = test['query']
+            
+            # Time embedding generation
+            embed_start = time.time()
+            query_embedding = model.encode(query).tolist()
+            
+            # Pad or truncate
+            if len(query_embedding) < dims:
+                query_embedding = query_embedding + [0.0] * (dims - len(query_embedding))
+            elif len(query_embedding) > dims:
+                query_embedding = query_embedding[:dims]
+            
+            embedding_time = (time.time() - embed_start) * 1000
+            embedding_times.append(embedding_time)
+            
+            # Time search query
+            search_start = time.time()
+            
+            search_query = {
+                "query": {
+                    "script_score": {
+                        "query": {"match_all": {}},
+                        "script": {
+                            "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                            "params": {"query_vector": query_embedding}
+                        }
+                    }
+                },
+                "size": 3
+            }
+            
+            try:
+                response = self.es.search(index=index, **search_query)
+                search_time = (time.time() - search_start) * 1000
+                query_times.append(search_time)
+                
+                # Get top result
+                if response['hits']['hits']:
+                    top_hit = response['hits']['hits'][0]
+                    score = top_hit['_score']
+                    relevance_scores.append(score)
+                    
+                    # Check if it's a hit (contains expected source)
+                    if 'expected_source' in test:
+                        if test['expected_source'] in top_hit['_source'].get('source_url', ''):
+                            hits += 1
+                    
+                    print(f"  Query {i}: {query[:50]:50} | "
+                          f"Score: {score:5.2f} | "
+                          f"Embed: {embedding_time:4.0f}ms | "
+                          f"Search: {search_time:4.0f}ms")
+                else:
+                    print(f"  Query {i}: No results")
+            
+            except Exception as e:
+                print(f"  Query {i}: Error - {e}")
+        
+        # Calculate statistics
+        results = {
+            "config": config['name'],
+            "dimensions": dims,
+            "model": config['model'],
+            "total_queries": len(test_queries),
+            "hit_rate": hits / len(test_queries) if test_queries else 0,
+            "avg_relevance_score": statistics.mean(relevance_scores) if relevance_scores else 0,
+            "median_relevance_score": statistics.median(relevance_scores) if relevance_scores else 0,
+            "avg_embedding_time_ms": statistics.mean(embedding_times) if embedding_times else 0,
+            "avg_search_time_ms": statistics.mean(query_times) if query_times else 0,
+            "total_time_ms": statistics.mean(embedding_times) + statistics.mean(query_times) if embedding_times and query_times else 0,
+            "p95_total_time_ms": sorted([e+s for e,s in zip(embedding_times, query_times)])[int(len(query_times)*0.95)] if query_times else 0,
+            "index_size_estimate_mb": self._estimate_index_size(dims, len(test_queries))
+        }
+        
+        return results
+    
+    def _estimate_index_size(self, dims: int, doc_count: int) -> float:
+        """Estimate index size in MB"""
+        # Vector storage: dims × 4 bytes × doc_count
+        vector_mb = (dims * 4 * doc_count) / (1024 * 1024)
+        
+        # HNSW graph: ~m × 2 × 8 bytes × doc_count (m=16)
+        graph_mb = (16 * 2 * 8 * doc_count) / (1024 * 1024)
+        
+        # Elasticsearch overhead: ~20%
+        total_mb = (vector_mb + graph_mb) * 1.2
+        
+        return total_mb
+    
+    def print_comparison(self, results: List[Dict]):
+        """Print comparison table"""
+        print(f"\n{'='*80}")
+        print("BENCHMARK RESULTS COMPARISON")
+        print(f"{'='*80}\n")
+        
+        print(f"{'Config':<20} {'Dims':>6} {'Hit%':>6} {'AvgScore':>9} "
+              f"{'Embed(ms)':>10} {'Search(ms)':>11} {'Total(ms)':>10} {'Size(MB)':>10}")
+        print("-" * 80)
+        
+        for r in results:
+            print(f"{r['config']:<20} "
+                  f"{r['dimensions']:>6} "
+                  f"{r['hit_rate']*100:>5.1f}% "
+                  f"{r['avg_relevance_score']:>9.2f} "
+                  f"{r['avg_embedding_time_ms']:>10.1f} "
+                  f"{r['avg_search_time_ms']:>11.1f} "
+                  f"{r['total_time_ms']:>10.1f} "
+                  f"{r['index_size_estimate_mb']:>10.1f}")
+        
+        print("\n" + "="*80)
+        print("RECOMMENDATIONS:")
+        print("="*80 + "\n")
+        
+        # Find best configurations
+        best_speed = min(results, key=lambda x: x['total_time_ms'])
+        best_quality = max(results, key=lambda x: x['hit_rate'])
+        best_size = min(results, key=lambda x: x['index_size_estimate_mb'])
+        
+        print(f"🚀 Fastest:        {best_speed['config']} "
+              f"({best_speed['total_time_ms']:.1f}ms avg latency)")
+        print(f"🎯 Most Accurate:  {best_quality['config']} "
+              f"({best_quality['hit_rate']*100:.1f}% hit rate)")
+        print(f"💾 Smallest:       {best_size['config']} "
+              f"({best_size['index_size_estimate_mb']:.1f}MB estimated)")
+        
+        print("\n💡 Choosing the right configuration:")
+        print("   - For <100ms queries: Choose Fastest")
+        print("   - For best answers: Choose Most Accurate")
+        print("   - For cost savings: Choose Smallest")
+        print("   - For production: Balance all three\n")
+
+def main():
+    # Load test queries
+    with open('my_test_queries.json') as f:
+        test_queries = json.load(f)
+    
+    print(f"Loaded {len(test_queries)} test queries")
+    
+    benchmark = DimensionBenchmark()
+    all_results = []
+    
+    # Assume you have a source index with current embeddings
+    source_index = "knowledge_base"
+    
+    for config in DIMENSION_CONFIGS:
+        # Create index with target dimensions
+        benchmark.create_index(config['index'], config['dimensions'])
+        
+        # Re-index documents with new embeddings
+        benchmark.reindex_with_dimensions(
+            source_index=source_index,
+            target_index=config['index'],
+            model_name=config['model'],
+            target_dims=config['dimensions']
+        )
+        
+        # Run benchmark
+        results = benchmark.benchmark_config(config, test_queries)
+        all_results.append(results)
+        
+        # Wait a bit between tests
+        time.sleep(2)
+    
+    # Print comparison
+    benchmark.print_comparison(all_results)
+    
+    # Save results to file
+    with open('dimension_benchmark_results.json', 'w') as f:
+        json.dump(all_results, f, indent=2)
+    
+    print(f"\n✅ Results saved to: dimension_benchmark_results.json")
+    print(f"📊 Visualize with: python plot_benchmark.py dimension_benchmark_results.json\n")
+
+if __name__ == "__main__":
+    main()
+```
+
+#### Step 3: Run the Benchmark
+
+```bash
+# Make sure Elasticsearch is running
+curl http://localhost:9200/_cluster/health
+
+# Make sure you have documents indexed
+curl http://localhost:9200/knowledge_base/_count
+
+# Run the benchmark
+python benchmark_dimensions.py
+
+# Expected output:
+# ============================================================
+# Testing: Small (384 dims)
+# ============================================================
+#   Query 1: How do I install FastAPI?            | Score:  6.45 | Embed:   25ms | Search:   45ms
+#   Query 2: What is dependency injection?        | Score:  5.20 | Embed:   23ms | Search:   42ms
+#   ...
+#
+# ============================================================
+# Testing: Medium (768 dims)
+# ============================================================
+#   Query 1: How do I install FastAPI?            | Score:  6.89 | Embed:   45ms | Search:   65ms
+#   ...
+```
+
+#### Step 4: Analyze Results
+
+The benchmark will output a comparison table:
+
+```
+================================================================================
+BENCHMARK RESULTS COMPARISON
+================================================================================
+
+Config                Dims   Hit%  AvgScore  Embed(ms)  Search(ms)  Total(ms)  Size(MB)
+--------------------------------------------------------------------------------
+Small (384 dims)       384   82.0%      6.24       24.3        43.2       67.5      120.5
+Medium (768 dims)      768   87.0%      6.58       44.8        58.7      103.5      230.8
+Large (1536 dims)     1536   89.0%      6.72       89.2        95.3      184.5      450.2
+
+================================================================================
+RECOMMENDATIONS:
+================================================================================
+
+🚀 Fastest:        Small (384 dims) (67.5ms avg latency)
+🎯 Most Accurate:  Large (1536 dims) (89.0% hit rate)
+💾 Smallest:       Small (384 dims) (120.5MB estimated)
+
+💡 Choosing the right configuration:
+   - For <100ms queries: Choose Fastest
+   - For best answers: Choose Most Accurate
+   - For cost savings: Choose Smallest
+   - For production: Balance all three
+```
+
+#### Step 5: Interpret Your Results
+
+**Key questions to answer:**
+
+1. **Is the quality improvement worth the cost?**
+   ```
+   384 dims: 82% hit rate, 67ms, 120MB
+   768 dims: 87% hit rate, 103ms, 230MB  ← +5% accuracy for +54% latency
+   
+   Decision: If 5% accuracy is worth 36ms extra latency, use 768
+   ```
+
+2. **What's your bottleneck?**
+   ```
+   If Embed(ms) > Search(ms):
+     → Bottleneck is embedding generation (CPU/GPU)
+     → Consider smaller model or batch processing
+   
+   If Search(ms) > Embed(ms):
+     → Bottleneck is Elasticsearch (RAM/disk)
+     → Consider more RAM or optimize HNSW params
+   ```
+
+3. **How does it scale?**
+   ```
+   Your test: 100 docs, 384 dims = 120MB
+   Production: 100,000 docs, 384 dims = 120GB (1000x)
+   
+   Can your infrastructure handle this?
+   ```
+
+#### Step 6: Optional - Visualize Results
+
+```python
+#!/usr/bin/env python3
+# plot_benchmark.py - Visualize benchmark results
+
+import json
+import sys
+import matplotlib.pyplot as plt
+
+def plot_results(results_file):
+    with open(results_file) as f:
+        results = json.load(f)
+    
+    configs = [r['config'] for r in results]
+    dimensions = [r['dimensions'] for r in results]
+    
+    # Create subplots
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
+    
+    # Plot 1: Hit Rate vs Dimensions
+    hit_rates = [r['hit_rate'] * 100 for r in results]
+    ax1.bar(configs, hit_rates, color='green', alpha=0.7)
+    ax1.set_ylabel('Hit Rate (%)')
+    ax1.set_title('Search Accuracy by Dimensions')
+    ax1.axhline(y=80, color='r', linestyle='--', label='80% target')
+    ax1.legend()
+    
+    # Plot 2: Latency vs Dimensions
+    latencies = [r['total_time_ms'] for r in results]
+    ax2.bar(configs, latencies, color='blue', alpha=0.7)
+    ax2.set_ylabel('Latency (ms)')
+    ax2.set_title('Query Latency by Dimensions')
+    ax2.axhline(y=100, color='r', linestyle='--', label='100ms target')
+    ax2.legend()
+    
+    # Plot 3: Index Size vs Dimensions
+    sizes = [r['index_size_estimate_mb'] for r in results]
+    ax3.bar(configs, sizes, color='orange', alpha=0.7)
+    ax3.set_ylabel('Size (MB)')
+    ax3.set_title('Index Size by Dimensions')
+    
+    # Plot 4: Speed vs Accuracy Trade-off
+    ax4.scatter(latencies, hit_rates, s=200, alpha=0.6)
+    for i, config in enumerate(configs):
+        ax4.annotate(config, (latencies[i], hit_rates[i]))
+    ax4.set_xlabel('Latency (ms)')
+    ax4.set_ylabel('Hit Rate (%)')
+    ax4.set_title('Speed vs Accuracy Trade-off')
+    ax4.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig('dimension_benchmark.png', dpi=300, bbox_inches='tight')
+    print(f"📊 Chart saved to: dimension_benchmark.png")
+    plt.show()
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python plot_benchmark.py dimension_benchmark_results.json")
+        sys.exit(1)
+    
+    plot_results(sys.argv[1])
+```
+
+#### Step 7: Make Your Decision
+
+**Decision Matrix:**
+
+| Priority | Dimensions | Reason |
+|----------|-----------|---------|
+| **Speed First** (real-time apps) | 384 | Sub-100ms queries, lower compute |
+| **Quality First** (critical answers) | 768-1536 | Best accuracy, worth the cost |
+| **Cost First** (budget constrained) | 384 | Smallest storage, fastest indexing |
+| **Balanced** (most production systems) | 768 | Sweet spot for quality/speed/cost ✅ |
+
+**Update your configuration:**
+
+```python
+# rag_embeddings.py
+EMBEDDING_CONFIGS = {
+    'local_minilm': EmbeddingConfig(
+        provider='local',
+        model_name='sentence-transformers/all-MiniLM-L6-v2',
+        dimensions=384  # ← Change this based on your benchmark
+    )
+}
+```
+
+#### Tips for Accurate Benchmarking
+
+1. **Use realistic queries**: Don't test with toy examples
+2. **Test with production data**: Index your actual documents
+3. **Measure end-to-end**: Include embedding + search time
+4. **Consider your workload**: Batch queries? Real-time? Concurrent users?
+5. **Test at scale**: 100 docs ≠ 100,000 docs performance
+6. **Monitor in production**: Benchmarks ≠ real-world usage
+
+---
+
+### Workflow 6: Benchmark Matryoshka Embeddings (OpenAI)
+
+**What are Matryoshka embeddings?**
+
+Traditional embeddings: Each dimension size needs a separate model
+```
+384-dim model → 384 dimensions only
+768-dim model → 768 dimensions only (cannot use first 384)
+```
+
+Matryoshka embeddings: One model, multiple dimension sizes!
+```
+text-embedding-3-large (3072 dims) → Use ANY prefix:
+  - First 256 dims  (fastest, lowest quality)
+  - First 512 dims  (balanced)
+  - First 1024 dims (good quality)
+  - First 1536 dims (high quality)
+  - All 3072 dims   (best quality, slowest)
+```
+
+**Key advantage:** Truncating maintains quality (unlike padding/truncating regular embeddings).
+
+#### Why Use Matryoshka Embeddings?
+
+```yaml
+Traditional Approach:
+  - Need 3 separate models for 384, 768, 1536 dims
+  - Can't change dimensions after indexing
+  - Storage: 3 separate indexes
+
+Matryoshka Approach:
+  - ONE model (text-embedding-3-large)
+  - Test 5+ dimension sizes from same embeddings
+  - Can switch dimensions without re-embedding
+  - Storage: Just slice existing vectors
+```
+
+#### Supported Models
+
+| Model | Max Dims | Recommended Truncations | Cost | Quality |
+|-------|----------|------------------------|------|---------|
+| **text-embedding-3-small** | 1536 | 256, 512, 1024, 1536 | $ | ⭐⭐⭐⭐ |
+| **text-embedding-3-large** | 3072 | 256, 512, 1024, 1536, 3072 | $$ | ⭐⭐⭐⭐⭐ |
+
+#### Benchmark Script for Matryoshka Embeddings
+
+```python
+#!/usr/bin/env python3
+# benchmark_matryoshka.py - Test OpenAI Matryoshka embeddings
+
+import os
+import time
+import json
+import statistics
+from typing import List, Dict
+from openai import OpenAI
+from elasticsearch import Elasticsearch
+
+# Initialize OpenAI client
+client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+
+# Matryoshka dimension configurations to test
+MATRYOSHKA_CONFIGS = [
+    {"name": "Tiny (256 dims)", "dimensions": 256},
+    {"name": "Small (512 dims)", "dimensions": 512},
+    {"name": "Medium (1024 dims)", "dimensions": 1024},
+    {"name": "Large (1536 dims)", "dimensions": 1536},
+    {"name": "XL (3072 dims)", "dimensions": 3072},  # Only for text-embedding-3-large
+]
+
+class MatryoshkaBenchmark:
+    def __init__(self, 
+                 model: str = "text-embedding-3-large",
+                 es_url: str = "http://localhost:9200"):
+        self.model = model
+        self.es = Elasticsearch(es_url)
+        self.full_embeddings_cache = {}  # Cache full embeddings
+    
+    def get_embedding(self, text: str, dimensions: int = None) -> List[float]:
+        """Get OpenAI embedding with optional dimension truncation"""
+        cache_key = text
+        
+        # Get full embedding (cache for reuse)
+        if cache_key not in self.full_embeddings_cache:
+            response = client.embeddings.create(
+                model=self.model,
+                input=text,
+                encoding_format="float"
+            )
+            self.full_embeddings_cache[cache_key] = response.data[0].embedding
+        
+        full_embedding = self.full_embeddings_cache[cache_key]
+        
+        # Truncate to desired dimensions
+        if dimensions and dimensions < len(full_embedding):
+            return full_embedding[:dimensions]
+        return full_embedding
+    
+    def create_index(self, index_name: str, dimensions: int):
+        """Create Elasticsearch index for specific dimensions"""
+        mapping = {
+            "mappings": {
+                "properties": {
+                    "content": {"type": "text"},
+                    "title": {"type": "text"},
+                    "embedding": {
+                        "type": "dense_vector",
+                        "dims": dimensions,
+                        "index": True,
+                        "similarity": "cosine",
+                        "index_options": {
+                            "type": "hnsw",
+                            "m": 16,
+                            "ef_construction": 100
+                        }
+                    },
+                    "source_url": {"type": "keyword"},
+                    "full_embedding_cached": {"type": "binary"}  # Store full for later
+                }
+            }
+        }
+        
+        if self.es.indices.exists(index=index_name):
+            print(f"  Deleting existing index: {index_name}")
+            self.es.indices.delete(index=index_name)
+        
+        self.es.indices.create(index=index_name, mappings=mapping["mappings"])
+        print(f"  Created index: {index_name} with {dimensions} dimensions")
+    
+    def index_with_matryoshka(self, source_index: str, target_index: str, 
+                              target_dims: int):
+        """
+        Index documents using Matryoshka embeddings
+        Key: Generate FULL embedding once, then truncate for different sizes
+        """
+        print(f"\n  Indexing to {target_index} with {target_dims} dimensions...")
+        
+        # Get documents from source
+        query = {"query": {"match_all": {}}, "size": 10000}
+        response = self.es.search(index=source_index, **query)
+        docs = response['hits']['hits']
+        
+        print(f"  Found {len(docs)} documents")
+        
+        for i, doc in enumerate(docs):
+            source = doc['_source']
+            
+            # Get full embedding (cached), then truncate
+            full_embedding = self.get_embedding(source['content'])
+            truncated_embedding = full_embedding[:target_dims]
+            
+            # Index with truncated embedding
+            self.es.index(
+                index=target_index,
+                id=doc['_id'],
+                document={
+                    **source,
+                    "embedding": truncated_embedding
+                }
+            )
+            
+            if (i + 1) % 50 == 0:
+                print(f"  Processed {i + 1}/{len(docs)} documents")
+        
+        self.es.indices.refresh(index=target_index)
+        print(f"  ✅ Indexed {len(docs)} documents with {target_dims} dims")
+    
+    def benchmark_dimension(self, config: Dict, test_queries: List[Dict],
+                           index_name: str) -> Dict:
+        """Benchmark specific dimension size"""
+        print(f"\n{'='*60}")
+        print(f"Testing: {config['name']}")
+        print(f"{'='*60}")
+        
+        dims = config['dimensions']
+        
+        query_times = []
+        relevance_scores = []
+        hits = 0
+        embedding_times = []
+        embedding_costs = []
+        
+        for i, test in enumerate(test_queries, 1):
+            query = test['query']
+            
+            # Time embedding generation
+            embed_start = time.time()
+            query_embedding = self.get_embedding(query, dimensions=dims)
+            embedding_time = (time.time() - embed_start) * 1000
+            embedding_times.append(embedding_time)
+            
+            # Cost estimate (OpenAI pricing)
+            # text-embedding-3-small: $0.02 per 1M tokens
+            # text-embedding-3-large: $0.13 per 1M tokens
+            cost_per_1m_tokens = 0.13 if "large" in self.model else 0.02
+            # Rough estimate: ~1 token per 4 chars
+            tokens = len(query) / 4
+            cost = (tokens / 1_000_000) * cost_per_1m_tokens
+            embedding_costs.append(cost)
+            
+            # Time search
+            search_start = time.time()
+            
+            search_query = {
+                "query": {
+                    "script_score": {
+                        "query": {"match_all": {}},
+                        "script": {
+                            "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                            "params": {"query_vector": query_embedding}
+                        }
+                    }
+                },
+                "size": 3
+            }
+            
+            try:
+                response = self.es.search(index=index_name, **search_query)
+                search_time = (time.time() - search_start) * 1000
+                query_times.append(search_time)
+                
+                if response['hits']['hits']:
+                    top_hit = response['hits']['hits'][0]
+                    score = top_hit['_score']
+                    relevance_scores.append(score)
+                    
+                    if 'expected_source' in test:
+                        if test['expected_source'] in top_hit['_source'].get('source_url', ''):
+                            hits += 1
+                    
+                    print(f"  Q{i}: {query[:45]:45} | "
+                          f"Score: {score:5.2f} | "
+                          f"Embed: {embedding_time:4.0f}ms | "
+                          f"Search: {search_time:4.0f}ms | "
+                          f"Cost: ${cost*1000:.4f}")
+                else:
+                    print(f"  Q{i}: No results")
+            
+            except Exception as e:
+                print(f"  Q{i}: Error - {e}")
+        
+        results = {
+            "config": config['name'],
+            "dimensions": dims,
+            "model": self.model,
+            "total_queries": len(test_queries),
+            "hit_rate": hits / len(test_queries) if test_queries else 0,
+            "avg_relevance_score": statistics.mean(relevance_scores) if relevance_scores else 0,
+            "avg_embedding_time_ms": statistics.mean(embedding_times) if embedding_times else 0,
+            "avg_search_time_ms": statistics.mean(query_times) if query_times else 0,
+            "total_time_ms": statistics.mean(embedding_times) + statistics.mean(query_times) if embedding_times and query_times else 0,
+            "cost_per_query": statistics.mean(embedding_costs) if embedding_costs else 0,
+            "cost_per_1k_queries": statistics.mean(embedding_costs) * 1000 if embedding_costs else 0,
+            "index_size_mb": self._estimate_size(dims, len(test_queries))
+        }
+        
+        return results
+    
+    def _estimate_size(self, dims: int, doc_count: int) -> float:
+        """Estimate index size"""
+        vector_mb = (dims * 4 * doc_count) / (1024 * 1024)
+        graph_mb = (16 * 2 * 8 * doc_count) / (1024 * 1024)
+        return (vector_mb + graph_mb) * 1.2
+    
+    def print_comparison(self, results: List[Dict]):
+        """Print comparison table"""
+        print(f"\n{'='*90}")
+        print("MATRYOSHKA EMBEDDING BENCHMARK RESULTS")
+        print(f"{'='*90}\n")
+        
+        print(f"Model: {self.model}")
+        print(f"{'Config':<20} {'Dims':>6} {'Hit%':>6} {'Score':>7} "
+              f"{'Total(ms)':>10} {'$/1k':>8} {'Size(MB)':>10}")
+        print("-" * 90)
+        
+        for r in results:
+            print(f"{r['config']:<20} "
+                  f"{r['dimensions']:>6} "
+                  f"{r['hit_rate']*100:>5.1f}% "
+                  f"{r['avg_relevance_score']:>7.2f} "
+                  f"{r['total_time_ms']:>10.1f} "
+                  f"${r['cost_per_1k_queries']:>7.2f} "
+                  f"{r['index_size_mb']:>10.1f}")
+        
+        print("\n" + "="*90)
+        print("RECOMMENDATIONS:")
+        print("="*90 + "\n")
+        
+        best_speed = min(results, key=lambda x: x['total_time_ms'])
+        best_quality = max(results, key=lambda x: x['hit_rate'])
+        best_cost = min(results, key=lambda x: x['cost_per_1k_queries'])
+        best_value = max(results, key=lambda x: x['hit_rate'] / (r['total_time_ms'] / 100))
+        
+        print(f"⚡ Fastest:       {best_speed['config']} ({best_speed['total_time_ms']:.0f}ms)")
+        print(f"🎯 Most Accurate: {best_quality['config']} ({best_quality['hit_rate']*100:.1f}% hit rate)")
+        print(f"💰 Cheapest:      {best_cost['config']} (${best_cost['cost_per_1k_queries']:.2f}/1k queries)")
+        print(f"⭐ Best Value:    {best_value['config']} (accuracy/speed ratio)")
+        
+        print("\n🔍 Matryoshka Insight:")
+        print("   Notice how hit rate changes with dimensions - find your sweet spot!")
+        
+        # Calculate efficiency
+        if len(results) > 1:
+            smallest = results[0]
+            largest = results[-1]
+            
+            quality_gain = (largest['hit_rate'] - smallest['hit_rate']) * 100
+            speed_loss = ((largest['total_time_ms'] - smallest['total_time_ms']) / 
+                         smallest['total_time_ms']) * 100
+            
+            print(f"\n📊 Scaling Analysis:")
+            print(f"   {smallest['dimensions']} → {largest['dimensions']} dims:")
+            print(f"   • Quality gain: +{quality_gain:.1f} percentage points")
+            print(f"   • Speed cost: +{speed_loss:.1f}%")
+            print(f"   • Worth it? {quality_gain / (speed_loss + 0.01):.2f}x quality/speed ratio")
+
+def main():
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Benchmark Matryoshka embeddings')
+    parser.add_argument('--model', default='text-embedding-3-large',
+                       choices=['text-embedding-3-small', 'text-embedding-3-large'],
+                       help='OpenAI embedding model')
+    parser.add_argument('--queries', default='my_test_queries.json',
+                       help='Test queries JSON file')
+    parser.add_argument('--source-index', default='knowledge_base',
+                       help='Source Elasticsearch index')
+    
+    args = parser.parse_args()
+    
+    # Check for API key
+    if not os.environ.get('OPENAI_API_KEY'):
+        print("❌ Error: OPENAI_API_KEY environment variable not set")
+        print("   export OPENAI_API_KEY='sk-...'")
+        return
+    
+    # Load test queries
+    with open(args.queries) as f:
+        test_queries = json.load(f)
+    
+    print(f"📚 Loaded {len(test_queries)} test queries")
+    print(f"🤖 Model: {args.model}")
+    print(f"📊 Testing {len(MATRYOSHKA_CONFIGS)} dimension configurations\n")
+    
+    benchmark = MatryoshkaBenchmark(model=args.model)
+    all_results = []
+    
+    # Filter configs based on model max dimensions
+    max_dims = 3072 if "large" in args.model else 1536
+    configs = [c for c in MATRYOSHKA_CONFIGS if c['dimensions'] <= max_dims]
+    
+    for config in configs:
+        dims = config['dimensions']
+        index_name = f"knowledge_base_matryoshka_{dims}"
+        
+        # Create index
+        benchmark.create_index(index_name, dims)
+        
+        # Index with truncated embeddings
+        benchmark.index_with_matryoshka(args.source_index, index_name, dims)
+        
+        # Benchmark
+        results = benchmark.benchmark_dimension(config, test_queries, index_name)
+        all_results.append(results)
+        
+        time.sleep(1)
+    
+    # Print comparison
+    benchmark.print_comparison(all_results)
+    
+    # Save results
+    output_file = f'matryoshka_benchmark_{args.model}.json'
+    with open(output_file, 'w') as f:
+        json.dump({
+            "model": args.model,
+            "test_queries": len(test_queries),
+            "results": all_results
+        }, f, indent=2)
+    
+    print(f"\n✅ Results saved to: {output_file}\n")
+
+if __name__ == "__main__":
+    main()
+```
+
+#### How to Run
+
+```bash
+# 1. Set up OpenAI API key
+export OPENAI_API_KEY='sk-proj-...'
+
+# 2. Make sure you have documents indexed
+curl http://localhost:9200/knowledge_base/_count
+
+# 3. Run benchmark with text-embedding-3-large (best quality)
+python benchmark_matryoshka.py --model text-embedding-3-large --queries my_test_queries.json
+
+# Or test text-embedding-3-small (cheaper)
+python benchmark_matryoshka.py --model text-embedding-3-small --queries my_test_queries.json
+```
+
+#### Expected Output
+
+```
+================================================================================
+MATRYOSHKA EMBEDDING BENCHMARK RESULTS
+================================================================================
+
+Model: text-embedding-3-large
+Config                Dims   Hit%   Score  Total(ms)     $/1k  Size(MB)
+----------------------------------------------------------------------------------
+Tiny (256 dims)        256   78.0%    5.92       45.2   $0.15      85.3
+Small (512 dims)       512   84.0%    6.28       52.8   $0.15     160.4
+Medium (1024 dims)    1024   88.0%    6.45       68.5   $0.15     310.6
+Large (1536 dims)     1536   90.0%    6.58       89.3   $0.15     455.9
+XL (3072 dims)        3072   91.0%    6.65      142.7   $0.15     901.8
+
+================================================================================
+RECOMMENDATIONS:
+================================================================================
+
+⚡ Fastest:       Tiny (256 dims) (45ms)
+🎯 Most Accurate: XL (3072 dims) (91.0% hit rate)
+💰 Cheapest:      Tiny (256 dims) ($0.15/1k queries)
+⭐ Best Value:    Medium (1024 dims) (accuracy/speed ratio)
+
+🔍 Matryoshka Insight:
+   Notice how hit rate changes with dimensions - find your sweet spot!
+
+📊 Scaling Analysis:
+   256 → 3072 dims:
+   • Quality gain: +13.0 percentage points
+   • Speed cost: +215.7%
+   • Worth it? 4.12x quality/speed ratio
+```
+
+#### Key Insights
+
+**1. Diminishing Returns:**
+```
+256 → 512 dims:  +6% accuracy for +17% latency  ✅ Good trade-off
+512 → 1024 dims: +4% accuracy for +30% latency  ✅ Still worth it
+1024 → 1536 dims: +2% accuracy for +30% latency ⚠️ Questionable
+1536 → 3072 dims: +1% accuracy for +60% latency ❌ Not worth it
+```
+
+**2. Cost is Constant!**
+```
+All dimensions cost the same ($0.15/1k queries)
+You only pay for the full embedding generation
+Truncation is free!
+```
+
+**3. Sweet Spot for Most Use Cases:**
+```
+text-embedding-3-large with 1024 dims:
+  • 88% hit rate (good enough)
+  • 68ms latency (acceptable)
+  • $0.15/1k queries (reasonable)
+  • 311MB index size (manageable)
+```
+
+#### Comparison with Traditional Embeddings
+
+| Approach | Model Switching | Re-indexing | Dimension Flexibility | Quality |
+|----------|----------------|-------------|---------------------|---------|
+| **Traditional** | Need new model | Full re-embed | Fixed after indexing | ⭐⭐⭐⭐ |
+| **Matryoshka** | Same model | Just re-slice | Change anytime | ⭐⭐⭐⭐⭐ |
+
+#### Production Recommendation
+
+```python
+# rag_embeddings.py - Add OpenAI Matryoshka config
+
+EMBEDDING_CONFIGS = {
+    'openai_matryoshka': EmbeddingConfig(
+        provider='openai',
+        model_name='text-embedding-3-large',
+        dimensions=1024,  # Start here, adjust based on benchmark
+        api_key=os.environ.get('OPENAI_API_KEY')
+    )
+}
+```
+
+**When to use Matryoshka:**
+- ✅ You want flexibility to tune dimensions without re-embedding
+- ✅ You're using OpenAI embeddings anyway
+- ✅ You want best-in-class quality with cost control
+- ✅ You might scale from 10k → 1M documents (can reduce dims later)
+
+**When to stick with traditional:**
+- ✅ You're using local models (sentence-transformers)
+- ✅ You're using Vertex AI embeddings
+- ✅ You want to avoid API dependency
+- ✅ Cost is not a concern
+
+---
+
+#### Tips for Accurate Benchmarking
+
+1. **Use realistic queries**: Don't test with toy examples
+2. **Test with production data**: Index your actual documents
+3. **Measure end-to-end**: Include embedding + search time
+4. **Consider your workload**: Batch queries? Real-time? Concurrent users?
+5. **Test at scale**: 100 docs ≠ 100,000 docs performance
+6. **Monitor in production**: Benchmarks ≠ real-world usage
+
 ---
 
 ## Real-World Examples
