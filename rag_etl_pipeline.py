@@ -216,7 +216,7 @@ class ElasticsearchIndexer:
         if self.es.indices.exists(index=self.index_name):
             logger.info(f"Index {self.index_name} already exists")
         else:
-            self.es.indices.create(index=self.index_name, body=mapping)
+            self.es.indices.create(index=self.index_name, mappings=mapping["mappings"])
             logger.info(f"Created index {self.index_name}")
     
     def index_chunks(self, chunks: List[Chunk]):
