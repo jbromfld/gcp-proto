@@ -30,7 +30,6 @@ async def startup():
         # Initialize embedding provider
         embedding_provider = os.environ.get('EMBEDDING_PROVIDER', 'vertex')
         if embedding_provider == 'vertex':
-            from rag_embeddings import EMBEDDING_CONFIGS
             embedder = EmbeddingFactory.create(EMBEDDING_CONFIGS['vertex_gecko'])
         else:
             embedder = EmbeddingFactory.create(EMBEDDING_CONFIGS['local_minilm'])

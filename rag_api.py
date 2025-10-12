@@ -125,7 +125,7 @@ async def startup_event():
             embedding_config = EMBEDDING_CONFIGS['local_minilm']
             
         if llm_provider == 'vertex':
-            llm_config = LLM_CONFIGS['vertex_gemini']
+            llm_config = LLM_CONFIGS['vertex_gemini_flash']
         else:
             llm_config = LLM_CONFIGS['local_llama']
         
