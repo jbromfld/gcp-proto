@@ -213,11 +213,14 @@ class ElasticsearchIndexer:
             }
         }
         
-        if self.es.indices.exists(index=self.index_name):
-            logger.info(f"Index {self.index_name} already exists")
-        else:
+        try:
             self.es.indices.create(index=self.index_name, mappings=mapping["mappings"])
             logger.info(f"Created index {self.index_name}")
+        except Exception as e:
+            if 'resource_already_exists_exception' in str(e):
+                logger.info(f"Index {self.index_name} already exists")
+            else:
+                raise
     
     def index_chunks(self, chunks: List[Chunk]):
         """Bulk index chunks"""

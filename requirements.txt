@@ -8,7 +8,7 @@ streamlit>=1.40.0
 plotly>=5.24.0
 
 # Search & Vector Store
-elasticsearch>=8.17.0
+elasticsearch>=8.0.0,<9.0.0
 
 # Web scraping
 requests>=2.32.0
