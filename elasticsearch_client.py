@@ -35,10 +35,13 @@ def create_elasticsearch_client(
     password = password or os.environ.get('ELASTICSEARCH_PASSWORD')
     cloud_id = cloud_id or os.environ.get('ELASTICSEARCH_CLOUD_ID')
     
+    # Type narrowing
+    assert url is not None, "Elasticsearch URL must be provided"
+    
     # Elastic Cloud (using cloud_id)
     if cloud_id:
-        if not password:
-            raise ValueError("Password required for Elastic Cloud")
+        if not password or not username:
+            raise ValueError("Username and password required for Elastic Cloud")
         
         return Elasticsearch(
             cloud_id=cloud_id,
@@ -50,8 +53,8 @@ def create_elasticsearch_client(
     
     # Self-hosted with HTTPS (requires auth)
     elif url.startswith('https://'):
-        if not password:
-            raise ValueError("Password required for HTTPS Elasticsearch")
+        if not password or not username:
+            raise ValueError("Username and password required for HTTPS Elasticsearch")
         
         return Elasticsearch(
             [url],
@@ -79,7 +82,7 @@ if __name__ == "__main__":
     try:
         es = create_elasticsearch_client()
         health = es.cluster.health()
-        print(f"✓ Connected to Elasticsearch")
+        print("✓ Connected to Elasticsearch")
         print(f"  Cluster: {health['cluster_name']}")
         print(f"  Status: {health['status']}")
         print(f"  Nodes: {health['number_of_nodes']}")

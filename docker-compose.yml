@@ -113,7 +113,6 @@ services:
       - GOOGLE_REGION=${GOOGLE_REGION:-us-central1}
       - PYTHONPATH=/app
       - ETL_INTERVAL_HOURS=24
-      - SCRAPE_URLS=${SCRAPE_URLS:-}
     depends_on:
       elasticsearch:
         condition: service_healthy

@@ -2,6 +2,7 @@
 Simple web server for ETL operations on Cloud Run
 Responds to HTTP POST /trigger to run ETL pipeline
 """
+from typing import List, Optional
 from fastapi import FastAPI, BackgroundTasks
 from rag_etl_pipeline import ETLPipeline, ElasticsearchIndexer, DocumentChunker
 from rag_embeddings import EmbeddingFactory, EMBEDDING_CONFIGS
@@ -56,35 +57,29 @@ async def health_check():
     return {"status": "healthy", "service": "rag-etl"}
 
 @app.post("/trigger")
-async def trigger_etl(background_tasks: BackgroundTasks, urls: List[str] = None):
+async def trigger_etl(background_tasks: BackgroundTasks, urls: Optional[List[str]] = None):
     """
     Trigger ETL pipeline execution
-    URLs can be provided in request body or via SCRAPE_URLS env var
+    URLs must be provided in request body
     """
     if not etl_pipeline:
         return {"error": "ETL pipeline not initialized"}, 500
     
-    # Use URLs from request body if provided, otherwise fall back to env var
-    if urls:
-        scrape_urls = urls
-    else:
-        scrape_urls_str = os.environ.get('SCRAPE_URLS', '')
-        scrape_urls = [url.strip() for url in scrape_urls_str.split(',') if url.strip()]
-    
-    if not scrape_urls:
-        return {"error": "No URLs provided. Send URLs in request body or configure SCRAPE_URLS"}, 400
+    if not urls:
+        return {"error": "No URLs provided in request body"}, 400
     
     # Run ETL in background
-    background_tasks.add_task(run_etl, scrape_urls)
+    background_tasks.add_task(run_etl, urls)
     
     return {
         "status": "started",
         "message": "ETL pipeline triggered",
-        "urls": scrape_urls
+        "urls": urls
     }
 
 def run_etl(urls: list):
     """Run the ETL pipeline"""
+    assert etl_pipeline is not None, "ETL pipeline not initialized"
     try:
         logger.info(f"Starting ETL for {len(urls)} URLs")
         docs, chunks = etl_pipeline.run_scrape_and_index(
@@ -99,7 +94,6 @@ def run_etl(urls: list):
 async def status():
     """Get ETL pipeline status"""
     return {
-        "pipeline_initialized": etl_pipeline is not None,
-        "scrape_urls": os.environ.get('SCRAPE_URLS', '').split(',')
+        "pipeline_initialized": etl_pipeline is not None
     }
 
