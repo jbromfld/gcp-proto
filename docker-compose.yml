@@ -68,6 +68,7 @@ services:
       - LLM_PROVIDER=${LLM_PROVIDER:-local}
       - GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID:-}
       - GOOGLE_REGION=${GOOGLE_REGION:-us-central1}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcloud/application_default_credentials.json
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
     depends_on:
@@ -77,6 +78,7 @@ services:
     # Just ignore the empty folder
     volumes:
       - ${PWD}/credentials:/app/credentials:ro,Z
+      - ${HOME}/.config/gcloud/application_default_credentials.json:/app/gcloud/application_default_credentials.json:ro
     networks:
       - rag-network
     healthcheck:

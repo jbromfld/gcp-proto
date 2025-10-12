@@ -33,7 +33,7 @@ async def startup():
         if embedding_provider == 'vertex':
             embedder = EmbeddingFactory.create(EMBEDDING_CONFIGS['vertex_gecko'])
         else:
-            embedder = EmbeddingFactory.create(EMBEDDING_CONFIGS['local_minilm'])
+            embedder = EmbeddingFactory.create(EMBEDDING_CONFIGS['local_mpnet'])  # 768 dims (matches Vertex AI)
         
         logger.info(f"Initialized embeddings: {embedding_provider}")
         

@@ -124,7 +124,7 @@ async def startup_event():
         if embedding_provider == 'vertex':
             embedding_config = EMBEDDING_CONFIGS['vertex_gecko']
         else:
-            embedding_config = EMBEDDING_CONFIGS['local_minilm']
+            embedding_config = EMBEDDING_CONFIGS['local_mpnet']  # 768 dims (matches Vertex AI)
             
         if llm_provider == 'vertex':
             llm_config = LLM_CONFIGS['vertex_gemini_flash']
