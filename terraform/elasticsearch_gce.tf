@@ -77,12 +77,10 @@ resource "google_compute_instance" "elasticsearch" {
       systemctl start docker
     fi
     
-    # Clean up stale lock files (fixes restart issues)
-    if [ -f /var/lib/elasticsearch/node.lock ]; then
-      echo "Removing stale lock files..."
-      rm -f /var/lib/elasticsearch/node.lock
-      rm -f /var/lib/elasticsearch/nodes/*/node.lock 2>/dev/null || true
-    fi
+    # Clean up ALL stale lock files (fixes restart issues)
+    echo "Cleaning up any stale Elasticsearch lock files..."
+    find /var/lib/elasticsearch -name "*.lock" -type f -delete 2>/dev/null || true
+    find /var/lib/elasticsearch -name "write.lock" -type f -delete 2>/dev/null || true
     
     # Run Elasticsearch container
     docker stop elasticsearch || true
