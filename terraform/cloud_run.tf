@@ -158,11 +158,6 @@ resource "google_cloud_run_service" "etl" {
           value = var.project_id
         }
 
-        env {
-          name  = "SCRAPE_URLS"
-          value = var.scrape_urls
-        }
-
         ports {
           container_port = 8080
         }

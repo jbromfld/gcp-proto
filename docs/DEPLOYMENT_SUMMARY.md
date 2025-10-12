@@ -194,8 +194,6 @@ gcp-proto/
 │   │   ├── outputs.tf
 │   │   └── terraform.tfvars
 │   ├── cloudbuild.yaml              # CI/CD
-│   ├── setup-gcp.sh                 # One-time setup
-│   └── deploy.sh                    # Deployment script
 │
 ├── Documentation
 │   ├── README.md
@@ -286,17 +284,22 @@ streamlit run rag_ui.py
 
 ### **GCP Deployment**
 ```bash
-# One-time setup
-./setup-gcp.sh
-
-# Deploy infrastructure
+# 1. Configure
 cd terraform
+cp terraform.tfvars.example terraform.tfvars
+vim terraform.tfvars  # Set project_id
+
+# 2. Deploy infrastructure  
 terraform init
 terraform apply
 
-# Build and deploy code
+# 3. Build images (~15 minutes)
+cd ..
 gcloud builds submit --config cloudbuild.yaml
-cd terraform && terraform apply  # Pull new images
+
+# 4. Update services with new images
+cd terraform
+terraform apply
 ```
 
 ### **Testing**

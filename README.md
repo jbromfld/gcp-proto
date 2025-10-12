@@ -19,14 +19,20 @@ A production-ready Retrieval-Augmented Generation (RAG) system with hybrid searc
 ### GCP Deployment
 
 ```bash
-# Configure
-cp gcp-configs/env.template .env.gcp
-vim .env.gcp  # Set GCP_PROJECT_ID
+# 1. Configure Terraform
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+vim terraform/terraform.tfvars  # Set project_id
 
-# Deploy
-./setup-gcp.sh
-cd terraform && terraform init && terraform apply
+# 2. Deploy infrastructure
+cd terraform
+terraform init
+terraform apply
+
+# 3. Build and push Docker images
+cd ..
 gcloud builds submit --config cloudbuild.yaml
+
+# 4. Services auto-deploy via Terraform
 ```
 
 **📖 Complete Guides:**

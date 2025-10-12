@@ -2,24 +2,27 @@
 
 Complete guide for deploying the RAG system to Google Cloud Platform.
 
-## Quick Start (5 Minutes)
+## Quick Start (15 Minutes)
 
 ```bash
-# 1. Configure
-cp gcp-configs/env.template .env.gcp
-vim .env.gcp  # Set GCP_PROJECT_ID
-
-# 2. Setup GCP
-./setup-gcp.sh
-
-# 3. Deploy with Terraform
+# 1. Configure Terraform
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-vim terraform.tfvars  # Set project_id
-terraform init
-terraform apply
+vim terraform.tfvars  # Set project_id, region, use_gce_elasticsearch=true
 
-# 4. Access
+# 2. Deploy infrastructure
+terraform init
+terraform apply  # Creates Elasticsearch VM, Cloud Run services, etc.
+
+# 3. Build and push Docker images
+cd ..
+gcloud builds submit --config cloudbuild.yaml  # ~15 minutes
+
+# 4. Update Cloud Run with new images
+cd terraform
+terraform apply  # Picks up new images
+
+# 5. Access your system
 terraform output ui_url
 ```
 
@@ -156,24 +159,37 @@ ALLOW_UNAUTHENTICATED=true  # Set false for production
 SCRAPE_URLS=https://docs.python.org/3/tutorial/,https://fastapi.tiangolo.com/
 ```
 
-### Step 2: Run Setup Script
+### Step 2: Enable GCP APIs
 
 ```bash
-chmod +x setup-gcp.sh
-./setup-gcp.sh
+# Set your project
+gcloud config set project YOUR-PROJECT-ID
+
+# Enable required APIs
+gcloud services enable \
+    run.googleapis.com \
+    artifactregistry.googleapis.com \
+    cloudbuild.googleapis.com \
+    aiplatform.googleapis.com \
+    compute.googleapis.com
+
+# Create Artifact Registry
+gcloud artifacts repositories create rag-system \
+    --repository-format=docker \
+    --location=us-central1 \
+    --description="Docker images for RAG system"
 ```
 
-This will:
-1. ✅ Enable required GCP APIs (Cloud Run, Vertex AI, etc.)
-2. ✅ Create Artifact Registry for Docker images
-3. ✅ Create service account with IAM permissions
-4. ✅ Setup Secret Manager (if using Elastic Cloud)
-5. ✅ Create Terraform state bucket
+This enables:
+1. ✅ Cloud Run (API, UI, ETL services)
+2. ✅ Artifact Registry (Docker images)
+3. ✅ Cloud Build (CI/CD)
+4. ✅ Vertex AI (LLM & embeddings)
+5. ✅ Compute Engine (Elasticsearch VM)
 
 **Output:**
 ```
-✓ APIs enabled
-✓ Artifact Registry ready  
+Operation "operations/..." finished successfully.  
 ✓ Service account created: rag-service@PROJECT-ID.iam.gserviceaccount.com
 ✓ IAM permissions granted
 ✓ Terraform state bucket ready
@@ -939,5 +955,5 @@ terraform apply -var="environment=prod"
 
 ---
 
-**Ready to deploy?** Run: `./setup-gcp.sh`
+**Ready to deploy?** See the Quick Start at the top of this guide.
 

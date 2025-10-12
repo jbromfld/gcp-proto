@@ -29,7 +29,6 @@ curl -X POST http://localhost:8000/api/query \
 
 ## Quick setup for GCP
 ```
-./setup-gcp.sh
-cd terraform && terraform init && terraform apply
 gcloud builds submit --config cloudbuild.yaml
+cd terraform && terraform init && terraform apply -auto-approve
 ```

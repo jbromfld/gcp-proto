@@ -30,12 +30,6 @@ variable "use_vpc_connector" {
   default     = false
 }
 
-variable "scrape_urls" {
-  description = "Comma-separated URLs to scrape"
-  type        = string
-  default     = "https://docs.python.org/3/tutorial/,https://fastapi.tiangolo.com/"
-}
-
 variable "api_cpu" {
   description = "CPU allocation for API service"
   type        = string

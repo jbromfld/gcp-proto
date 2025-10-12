@@ -21,9 +21,6 @@ elasticsearch_use_preemptible = false     # Set true for dev to save 60%
 # VPC connector (only needed for GKE Elasticsearch)
 use_vpc_connector = false
 
-# URLs to scrape
-scrape_urls = "https://docs.python.org/3/tutorial/,https://fastapi.tiangolo.com/"
-
 # Resource allocation
 api_cpu          = "2"
 api_memory       = "4Gi"

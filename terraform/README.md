@@ -189,9 +189,6 @@ elasticsearch_use_preemptible = true
 # Scale Cloud Run
 api_max_instances = 20
 api_min_instances = 1  # Keep warm for faster response
-
-# URLs to index
-scrape_urls = "https://docs.python.org/3/,https://cloud.google.com/docs/"
 ```
 
 ## Next Steps

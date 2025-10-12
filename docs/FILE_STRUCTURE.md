@@ -40,17 +40,15 @@ gcp-configs/env.template    # Template for GCP settings
 **Your file (gitignored):**
 ```
 .env.gcp                    # Copy from gcp-configs/env.template
-                           # Used by setup-gcp.sh
+                           # Optional reference file (Terraform uses terraform.tfvars)
 ```
 
 **Usage:**
 ```bash
-# One-time:
-cp gcp-configs/env.template .env.gcp
-vim .env.gcp                # Set GCP_PROJECT_ID
-
-# Deploy:
-./setup-gcp.sh
+# Configure Terraform instead:
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+vim terraform.tfvars        # Set project_id, region, etc.
 ```
 
 ---
@@ -67,8 +65,9 @@ start_local.sh              # Start API + UI (run every time)
 ### GCP
 
 ```bash
-setup-gcp.sh                # One-time setup (enable APIs, create resources)
-# Then use Terraform for deployment
+pause-gcp.sh                # Stop GCP resources for the week (~$16/mo)
+resume-gcp.sh               # Restart GCP resources in 60 seconds
+# See docs/GCP_DEPLOYMENT.md for full deployment guide
 ```
 
 ---
@@ -130,11 +129,12 @@ terraform/                  # Infrastructure as Code
 
 **Want to deploy to GCP?**
 ```
-→ cp gcp-configs/env.template .env.gcp
-→ Edit .env.gcp (set GCP_PROJECT_ID)
-→ ./setup-gcp.sh (one time)
-→ cd terraform && terraform init && terraform apply
-→ gcloud builds submit --config cloudbuild.yaml
+→ cd terraform
+→ cp terraform.tfvars.example terraform.tfvars
+→ Edit terraform.tfvars (set project_id)
+→ terraform init && terraform apply
+→ cd .. && gcloud builds submit --config cloudbuild.yaml
+→ cd terraform && terraform apply  # Update services with new images
 ```
 
 **Want to use docker-compose locally?**
@@ -178,9 +178,10 @@ docker-compose up -d
 | File | Purpose | Create From | Used By |
 |------|---------|-------------|---------|
 | `.env` | Local env vars | `env.local.template` | docker-compose, native Python |
-| `.env.gcp` | GCP settings | `gcp-configs/env.template` | setup-gcp.sh, Terraform |
+| `.env.gcp` | GCP settings (optional) | `gcp-configs/env.template` | Reference only |
 | `env.local.template` | Local template | Don't edit | Reference |
 | `gcp-configs/env.template` | GCP template | Don't edit | Reference |
+| `terraform/terraform.tfvars` | GCP deployment config | `terraform.tfvars.example` | Terraform (actual config) |
 
 **Both .env and .env.gcp are gitignored** - safe to add your secrets!
 
