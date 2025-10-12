@@ -7,11 +7,6 @@ set -e
 echo "🛑 Pausing GCP RAG System..."
 echo ""
 
-# Load project config
-if [ -f .env.gcp ]; then
-    export $(cat .env.gcp | grep -v '^#' | xargs)
-fi
-
 PROJECT_ID="${GCP_PROJECT_ID:-gcp-poc-474818}"
 REGION="${GCP_REGION:-us-central1}"
 ZONE="${REGION}-a"

@@ -116,50 +116,7 @@ gcloud projects create my-rag-project --name="RAG System"
 
 ## Step-by-Step Deployment
 
-### Step 1: Configure Environment
-
-```bash
-# Copy template
-cp gcp-configs/env.template .env.gcp
-
-# Edit with your settings
-vim .env.gcp
-```
-
-**Minimal required settings:**
-```bash
-GCP_PROJECT_ID=your-project-id    # Your GCP project
-GCP_REGION=us-central1             # Or your preferred region
-
-# Elasticsearch option (choose one):
-USE_GCE_ELASTICSEARCH=true         # Self-hosted (FREE or $25/mo) ✅ Recommended
-# OR
-# USE_GCE_ELASTICSEARCH=false
-# ELASTICSEARCH_URL=https://...    # Elastic Cloud ($95/mo)
-# ELASTICSEARCH_PASSWORD=...
-```
-
-**Full configuration:**
-```bash
-# GCP Settings
-GCP_PROJECT_ID=my-rag-project-12345
-GCP_REGION=us-central1
-
-# Elasticsearch (Self-hosted on GCE - Recommended)
-USE_GCE_ELASTICSEARCH=true
-ELASTICSEARCH_MACHINE_TYPE=e2-medium  # 4GB RAM, ~$25/mo (or e2-micro FREE but limited)
-ELASTICSEARCH_DISK_SIZE_GB=50
-ELASTICSEARCH_USE_PREEMPTIBLE=false   # Set true for 60% discount (dev only)
-
-# Deployment
-USE_TERRAFORM=true
-ALLOW_UNAUTHENTICATED=true  # Set false for production
-
-# Knowledge sources (optional - can manage via Admin UI)
-SCRAPE_URLS=https://docs.python.org/3/tutorial/,https://fastapi.tiangolo.com/
-```
-
-### Step 2: Enable GCP APIs
+### Step 1: Enable GCP APIs
 
 ```bash
 # Set your project
@@ -189,15 +146,10 @@ This enables:
 
 **Output:**
 ```
-Operation "operations/..." finished successfully.  
-✓ Service account created: rag-service@PROJECT-ID.iam.gserviceaccount.com
-✓ IAM permissions granted
-✓ Terraform state bucket ready
+Operation "operations/..." finished successfully.
 ```
 
-### Step 3: Deploy Infrastructure
-
-**Using Terraform (Recommended):**
+### Step 2: Configure Terraform
 
 ```bash
 cd terraform
@@ -209,7 +161,7 @@ cp terraform.tfvars.example terraform.tfvars
 vim terraform.tfvars
 ```
 
-**terraform.tfvars:**
+**Example terraform.tfvars:**
 ```hcl
 project_id = "your-project-id"
 region     = "us-central1"
@@ -253,7 +205,7 @@ terraform output
 - IAM bindings
 - Firewall rules
 
-### Step 4: Build & Deploy Code
+### Step 3: Build & Deploy Code
 
 ```bash
 # Build Docker images on GCP (handles AMD64 architecture)
@@ -271,7 +223,7 @@ cd terraform
 terraform apply  # Pulls latest images
 ```
 
-### Step 5: Verify Deployment
+### Step 4: Verify Deployment
 
 ```bash
 # Get URLs
