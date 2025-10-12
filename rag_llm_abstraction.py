@@ -300,7 +300,7 @@ class LLMFactory:
 LLM_CONFIGS = {
     'vertex_gemini_flash': LLMConfig(
         provider='vertex',
-        model_name='gemini-1.5-pro-002',  # Vertex AI Gemini 1.5 Pro
+        model_name='gemini-1.5-pro',  # Vertex AI Gemini 1.5 Pro
         temperature=0.7,
         max_tokens=1024,
         project_id=os.environ.get('GOOGLE_PROJECT_ID', 'your-project-id')

@@ -73,7 +73,8 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-    # Only mount credentials if the directory exists
+    # Keep for optional Vertex AI local testing
+    # Just ignore the empty folder
     volumes:
       - ${PWD}/credentials:/app/credentials:ro,Z
     networks:
