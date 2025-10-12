@@ -116,7 +116,10 @@ resource "google_cloud_run_service" "ui" {
     latest_revision = true
   }
 
-  depends_on = [google_cloud_run_service.api]
+  depends_on = [
+    google_cloud_run_service.api,
+    time_sleep.wait_for_elasticsearch,
+  ]
 }
 
 # Cloud Run service for ETL
@@ -181,7 +184,7 @@ resource "google_cloud_run_service" "etl" {
 
   depends_on = [
     google_project_service.required_apis,
-    google_secret_manager_secret_version.elasticsearch_url,
+    time_sleep.wait_for_elasticsearch,
   ]
 }
 
