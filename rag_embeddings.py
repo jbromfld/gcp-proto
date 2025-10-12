@@ -199,7 +199,7 @@ class EmbeddingFactory:
 EMBEDDING_CONFIGS = {
     'vertex_gecko': EmbeddingConfig(
         provider='vertex',
-        model_name='textembedding-gecko@003',
+        model_name='text-embedding-004',  # Latest Vertex AI embedding model
         dimensions=768,
         project_id=os.environ.get('GOOGLE_PROJECT_ID', 'your-project-id'),
         location=os.environ.get('GOOGLE_REGION', 'us-central1')

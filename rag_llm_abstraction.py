@@ -318,7 +318,7 @@ LLM_CONFIGS = {
         model_name='llama3.2',  # 3B model, use llama3.2:1b for low memory
         temperature=0.7,
         max_tokens=1024,
-        base_url='http://host.docker.internal:11434'  # Native Ollama on macOS
+        base_url=os.environ.get('OLLAMA_URL', 'http://localhost:11434')  # Use env var or localhost
     )
 }
 

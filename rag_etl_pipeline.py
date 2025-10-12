@@ -450,8 +450,13 @@ class ETLPipeline:
         self.chunker = chunker
     
     def process_documents(self, documents: List[Document], force_reindex: bool = False):
-        """Process documents: chunk, embed, index"""
+        """Process documents: chunk, embed, index
+        
+        Returns:
+            Tuple of (doc_count, chunk_count)
+        """
         all_chunks = []
+        processed_docs = 0
         
         for doc in documents:
             # Check if document changed
@@ -490,14 +495,15 @@ class ETLPipeline:
                 )
                 all_chunks.append(chunk)
             
+            processed_docs += 1
             logger.info(f"Processed {doc.title[:50]}: {len(chunk_texts)} chunks")
         
         # Bulk index
         if all_chunks:
             self.indexer.index_chunks(all_chunks)
-            logger.info(f"Indexed {len(all_chunks)} total chunks")
+            logger.info(f"Indexed {len(all_chunks)} total chunks from {processed_docs} documents")
         
-        return len(all_chunks)
+        return (processed_docs, len(all_chunks))
     
     def run_scrape_and_index(self, urls: List[str], max_pages_per_url: int = 50):
         """Scrape URLs and index"""

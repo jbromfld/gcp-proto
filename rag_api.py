@@ -557,31 +557,19 @@ async def ingest_source_background(source_id: str, source: KnowledgeSource):
         # Scrape documents
         documents = scraper.crawl(source.url)
         
-        # Chunk and index
-        chunker = DocumentChunker(chunk_size=500, overlap=50)
-        chunks = []
-        for doc in documents:
-            doc_chunks = chunker.chunk_document(doc)
-            chunks.extend(doc_chunks)
-        
-        # Embed and index
-        embedder = scheduled_etl.pipeline.embedder
-        indexer = scheduled_etl.pipeline.indexer
-        
-        for chunk in chunks:
-            chunk.embedding = embedder.embed_query(chunk.content)
-        
-        indexer.index_chunks(chunks)
+        # Use the ETL pipeline to chunk, embed, and index
+        # This handles all the conversion from text chunks to Chunk objects with embeddings
+        doc_count, chunk_count = scheduled_etl.pipeline.process_documents(documents)
         
         # Update source with success stats
         source_manager.update_ingestion_stats(
             source_id=source_id,
-            pages_scraped=len(documents),
-            chunks_created=len(chunks),
+            pages_scraped=doc_count,
+            chunks_created=chunk_count,
             status=SourceStatus.COMPLETED
         )
         
-        logger.info(f"Ingestion complete: {len(documents)} docs, {len(chunks)} chunks")
+        logger.info(f"Ingestion complete: {doc_count} docs, {chunk_count} chunks")
     
     except Exception as e:
         logger.error(f"Ingestion failed for {source_id}: {e}", exc_info=True)
