@@ -1,5 +1,11 @@
 # Docker Compose for RAG Knowledge Search System
 # Includes: Elasticsearch, API server, UI, and optional Ollama
+#
+# Usage:
+#   1. Create .env from template: cp env.local.template .env
+#   2. Start services: docker-compose up -d
+#   3. Stop services: docker-compose down
+
 services:
   # Elasticsearch for vector storage
   elasticsearch:
@@ -55,17 +61,15 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - EMBEDDING_PROVIDER=local
-      - LLM_PROVIDER=local
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      - OLLAMA_BASE_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-local}
+      - LLM_PROVIDER=${LLM_PROVIDER:-local}
+      - GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID:-}
+      - GOOGLE_REGION=${GOOGLE_REGION:-us-central1}
       - PYTHONPATH=/app
-      # For cloud providers, set these:
-      # - EMBEDDING_PROVIDER=vertex
-      # - LLM_PROVIDER=vertex
-      # - GOOGLE_PROJECT_ID=your-project-id
-      # - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - PYTHONUNBUFFERED=1
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -89,7 +93,7 @@ services:
     ports:
       - "8501:8501"
     environment:
-      - API_URL=http://api:8000
+      - API_URL=${API_URL:-http://api:8000}
     depends_on:
       - api
     networks:
@@ -102,12 +106,14 @@ services:
       dockerfile: Dockerfile.etl
     container_name: rag-etl
     environment:
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - EMBEDDING_PROVIDER=local
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-local}
+      - GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID:-}
+      - GOOGLE_REGION=${GOOGLE_REGION:-us-central1}
       - PYTHONPATH=/app
       - ETL_INTERVAL_HOURS=24
-      - SCRAPE_URLS=https://docs.python.org/3/tutorial/,https://fastapi.tiangolo.com/
+      - SCRAPE_URLS=${SCRAPE_URLS:-}
     depends_on:
       elasticsearch:
         condition: service_healthy

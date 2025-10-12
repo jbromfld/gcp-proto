@@ -1,359 +1,323 @@
 # RAG Knowledge Search System
 
-> **🚀 Ready to deploy to GCP?** See [SETUP_INSTRUCTIONS.md](SETUP_INSTRUCTIONS.md) for step-by-step guide!
-
-A production-ready Retrieval-Augmented Generation (RAG) system with multi-cloud support, evaluation framework, and automated data ingestion.
-
-## 🌟 Features
-
-### Core Capabilities
-- **Hybrid Search**: Combines vector similarity (semantic) with keyword matching (BM25)
-- **Multi-Cloud Support**: Switch between Google Vertex AI, Azure OpenAI, or local models
-- **Automated ETL**: Scheduled document scraping and indexing (24-hour cadence)
-- **Evaluation Framework**: Built-in feedback collection and metrics tracking
-- **Cost-Effective**: Use free local models for development, scale to cloud for production
-
-### Architecture Highlights
-- **Abstraction Layers**: Easily switch between embedding and LLM providers
-- **Reranking**: Improves retrieval quality by reordering results
-- **Context Management**: Prevents token overflow with smart chunking
-- **Feedback Loop**: Thumbs up/down + ratings for continuous improvement
-
-## 📋 Prerequisites
-
-- Docker & Docker Compose (for containerized setup)
-- Python 3.9+ (for local development)
-- 8GB+ RAM (for running Elasticsearch + local models)
-- Optional: NVIDIA GPU (for faster local LLM inference)
+A production-ready Retrieval-Augmented Generation (RAG) system with hybrid search, multi-cloud support, and intelligent source management.
 
 ## 🚀 Quick Start
 
-### Option 1: Docker Compose (Recommended)
+### Local Development
 
 ```bash
-# Clone the repository
-git clone <your-repo>
-cd rag-knowledge-search
+# One-time setup
+./setup_local.sh
 
-# Start all services
-docker-compose up -d
+# Start services
+./start_local.sh
 
-# Wait for services to be healthy (2-3 minutes)
-docker-compose logs -f
-
-# Pull local LLM model (first time only)
-docker exec rag-ollama ollama pull llama3.2
-
-# Access the UI
-open http://localhost:8501
+# Open browser → http://localhost:8501
 ```
 
-### Option 2: Local Development
+### GCP Deployment
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Configure
+cp gcp-configs/env.template .env.gcp
+vim .env.gcp  # Set GCP_PROJECT_ID
 
-# Start Elasticsearch
-docker run -d -p 9200:9200 -e "discovery.type=single-node" \
-  docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-
-# Start Ollama (for local LLM)
-docker run -d -p 11434:11434 ollama/ollama
-docker exec $(docker ps -q -f ancestor=ollama/ollama) ollama pull llama3.2
-
-# Run API server
-python rag_api.py
-
-# In another terminal, run UI
-streamlit run rag_ui.py
-
-# In another terminal, run ETL scheduler
-python -c "from rag_etl_pipeline import *; ..."
+# Deploy
+./setup-gcp.sh
+cd terraform && terraform init && terraform apply
+gcloud builds submit --config cloudbuild.yaml
 ```
+
+**📖 Complete Guides:**
+- **Local**: [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md)
+- **GCP**: [docs/GCP_DEPLOYMENT.md](docs/GCP_DEPLOYMENT.md)
+
+---
+
+## 🌟 Features
+
+### Knowledge Management
+- ✅ **Dynamic Source Management**: Add/remove knowledge sources via Admin UI
+- ✅ **Recursive Scraping**: Wildcard support (`docs.python.org/*`)  
+- ✅ **Source Tracking**: Monitor ingestion status, stats, and history
+- ✅ **Flexible Configuration**: Crawl depth, page limits, URL patterns
+
+### Search & Retrieval
+- ✅ **Hybrid Search**: Vector similarity + keyword matching (BM25)
+- ✅ **Smart Relevance**: Automatic fallback to general knowledge when docs aren't relevant
+- ✅ **Multi-Provider**: Local models, Vertex AI, or Azure OpenAI
+- ✅ **Configurable Threshold**: Tune precision vs recall
+
+### User Experience
+- ✅ **Streamlit UI**: Clean interface for search, feedback, and admin
+- ✅ **Real-time Feedback**: Thumbs up/down on answers
+- ✅ **Metrics Dashboard**: Track performance and user satisfaction
+- ✅ **Search History**: View past queries and responses
+
+### Production Ready
+- ✅ **Auto-scaling**: Cloud Run scales 0 → N instances
+- ✅ **Cost Optimized**: Self-hosted Elasticsearch ($25/mo vs $95/mo)
+- ✅ **Persistent Storage**: Data survives restarts
+- ✅ **Scheduled Updates**: Daily ETL via Cloud Scheduler
+- ✅ **Infrastructure as Code**: Full Terraform configuration
+
+---
+
+## 📋 System Requirements
+
+### Local Development
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| RAM | 8GB | 16GB |
+| Disk | 10GB free | 20GB free |
+| CPU | 2 cores | 4+ cores |
+| Software | Python 3.9+, Docker, Ollama | |
+
+### GCP Production
+| Component | Config | Monthly Cost |
+|-----------|--------|--------------|
+| Elasticsearch | e2-medium (4GB) | ~$25 |
+| Cloud Run | Auto-scaling | ~$10-30 |
+| Vertex AI | 1K-5K queries/day | ~$10-30 |
+| **Total** | | **~$45-85/mo** |
+
+---
+
+## 🏗️ Architecture
+
+```
+Local Development:
+  UI (Streamlit) → API (FastAPI) → Elasticsearch (Docker)
+                        ↓
+                   Ollama (Local LLM)
+
+GCP Production:
+  Cloud Run (UI) → Cloud Run (API) → GCE (Elasticsearch)
+                        ↓                    ↑
+                   Vertex AI           VPC Connector
+                   (Gemini + Embeddings)
+```
+
+---
 
 ## 📦 Project Structure
 
 ```
-rag-knowledge-search/
-├── rag_embeddings.py          # Embedding abstraction layer
-├── rag_llm_abstraction.py     # LLM abstraction layer
-├── rag_etl_pipeline.py         # ETL with scheduled scraping
-├── rag_service.py              # Main RAG service with hybrid search
-├── rag_evaluation.py           # Feedback & metrics framework
-├── rag_api.py                  # FastAPI backend
-├── rag_ui.py                   # Streamlit UI
-├── docker-compose.yml          # Docker orchestration
-├── requirements.txt            # Python dependencies
-└── README.md                   # This file
+gcp-proto/
+├── Core Application
+│   ├── rag_api.py                    # FastAPI REST API
+│   ├── rag_ui.py                     # Streamlit UI
+│   ├── rag_service.py                # RAG orchestration
+│   ├── rag_sources.py                # Source management
+│   ├── rag_etl_pipeline.py           # Document processing & scraping
+│   ├── rag_embeddings.py             # Multi-provider embeddings
+│   ├── rag_llm_abstraction.py        # Multi-provider LLMs
+│   └── rag_evaluation.py             # Metrics & feedback
+│
+├── Deployment
+│   ├── setup_local.sh                # Local setup (one-time)
+│   ├── start_local.sh                # Start local services
+│   ├── setup-gcp.sh                  # GCP setup (one-time)
+│   ├── docker-compose.yml            # Local Docker config
+│   ├── Dockerfile.{api,ui,etl}       # Container images
+│   ├── cloudbuild.yaml               # GCP CI/CD
+│   └── terraform/                    # Infrastructure as Code
+│
+└── Documentation
+    ├── docs/LOCAL_DEVELOPMENT.md     # Local dev guide
+    ├── docs/GCP_DEPLOYMENT.md        # GCP deployment guide
+    ├── docs/SIMILARITY_SEARCH_GUIDE.md # Testing & optimization
+    ├── docs/DEPLOYMENT_SUMMARY.md    # What we built
+    └── COST_COMPARISON.md            # Pricing analysis
 ```
+
+---
+
+## 📖 Documentation
+
+| Guide | Purpose | When to Read |
+|-------|---------|--------------|
+| [LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) | Run locally, develop, test | First time setup |
+| [GCP_DEPLOYMENT.md](docs/GCP_DEPLOYMENT.md) | Deploy to Google Cloud | Going to production |
+| [SIMILARITY_SEARCH_GUIDE.md](docs/SIMILARITY_SEARCH_GUIDE.md) | Tuning, testing, optimization | Improving search quality |
+| [DEPLOYMENT_SUMMARY.md](docs/DEPLOYMENT_SUMMARY.md) | What was built, issues resolved | Quick reference |
+| [COST_COMPARISON.md](COST_COMPARISON.md) | Pricing for different configs | Budget planning |
+
+---
 
 ## 🔧 Configuration
 
-### Embedding Providers
+See `env.local.template` for all environment variables.
+
+**Key settings:**
+
+| Variable | Options | Description |
+|----------|---------|-------------|
+| `EMBEDDING_PROVIDER` | local, vertex, azure | Where to get embeddings |
+| `LLM_PROVIDER` | local, vertex, azure | Which LLM to use |
+| `ELASTICSEARCH_URL` | http://... | Vector store endpoint |
+| `OLLAMA_URL` | http://localhost:11434 | Local LLM (if using local) |
+
+**Multi-Cloud Support:**
 
 ```python
-# Local (Free, runs on CPU)
-EMBEDDING_CONFIGS['local_minilm']  # 384 dims, fast
-EMBEDDING_CONFIGS['local_mpnet']   # 768 dims, better quality
+# Local (Free)
+EMBEDDING_PROVIDER=local  # sentence-transformers
+LLM_PROVIDER=local        # Ollama
 
-# Google Vertex AI (Paid, requires GCP setup)
-EMBEDDING_CONFIGS['vertex_gecko']  # 768 dims
+# Google Cloud
+EMBEDDING_PROVIDER=vertex  # text-embedding-004
+LLM_PROVIDER=vertex        # gemini-pro
 
-# Azure OpenAI (Paid, requires Azure setup)
-EMBEDDING_CONFIGS['azure_ada']     # 1536 dims
+# Azure
+EMBEDDING_PROVIDER=azure   # text-embedding-ada-002
+LLM_PROVIDER=azure         # gpt-4
 ```
 
-### LLM Providers
+---
 
-```python
-# Local (Free, uses Ollama)
-LLM_CONFIGS['local_llama']  # llama3.2, mistral, phi, etc.
+## 📊 Features Deep Dive
 
-# Google Vertex AI (Paid)
-LLM_CONFIGS['vertex_gemini_flash']  # Fast and cheap
-LLM_CONFIGS['vertex_gemini_pro']    # More capable
+### Intelligent Source Management
 
-# Azure OpenAI (Paid)
-LLM_CONFIGS['azure_gpt4']  # Most capable
-```
+**Add sources via UI:**
+- Single page: `https://fastapi.tiangolo.com/`
+- Recursive crawl: `https://docs.python.org/3/*`
+- Configure depth (1-5 levels), page limits, URL patterns
+- Track ingestion status and statistics
 
-### Environment Variables
-
+**API endpoints:**
 ```bash
-# For local development
-export EMBEDDING_PROVIDER=local
-export LLM_PROVIDER=local
-export ELASTICSEARCH_URL=http://localhost:9200
-
-# For Google Cloud deployment
-export EMBEDDING_PROVIDER=vertex
-export LLM_PROVIDER=vertex
-export GOOGLE_PROJECT_ID=your-project-id
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
-
-# For Azure deployment
-export EMBEDDING_PROVIDER=azure
-export LLM_PROVIDER=azure
-export AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-export AZURE_OPENAI_API_KEY=your-api-key
+POST   /api/admin/sources              # Add source
+GET    /api/admin/sources              # List all
+POST   /api/admin/sources/{id}/ingest  # Trigger ingestion
+DELETE /api/admin/sources/{id}         # Remove source
 ```
 
-## 📊 Evaluation & Ranking
+### Smart Relevance Thresholding
 
-### Feedback Collection
-
-The system automatically logs every query with:
-- Retrieved documents and scores
-- LLM response
-- Latency metrics
-- Cost estimates
-
-Users can provide feedback via:
-- 👍 Thumbs up / 👎 Thumbs down
-- 1-5 star ratings
-- Text comments
-
-### Metrics Dashboard
-
-Access at `http://localhost:8501` → Metrics tab:
-- **Satisfaction rate**: % thumbs up
-- **Response time**: Avg, P95, P99 latency
-- **Popular queries**: Most common searches
-- **Low-rated queries**: Flagged for improvement
-- **Cost tracking**: Total API costs
-
-### Ranking Strategy
-
-1. **Hybrid search**: Combines vector (70%) + keyword (30%)
-2. **Reranking**: Adjusts scores based on query term overlap
-3. **Context limit**: Selects top results within 2K token budget
-4. **Deduplication**: Prevents similar chunks from same document
-
-### Continuous Improvement
+**The system automatically decides when to use retrieved documents:**
 
 ```python
-# Export low-rated queries to test suite
-from rag_evaluation import TestSuite, FeedbackStore
+RELEVANCE_THRESHOLD = 3.0  # Configurable in rag_service.py
 
-test_suite = TestSuite(feedback_store)
-test_suite.export_failing_queries_to_tests(days=7)
-
-# Add manual test cases
-test_suite.add_test_case(
-    query="How do I install FastAPI?",
-    expected_keywords=["pip", "install", "fastapi"],
-    min_score=0.7
-)
-
-# Run regression tests
-results = test_suite.run_tests(rag_service)
-print(f"Passed: {results['passed']}/{results['total']}")
+if max_score < 3.0:
+    # Documents not relevant enough
+    # Use LLM general knowledge
+else:
+    # Documents are relevant
+    # Use RAG with context
 ```
 
-## 🔄 ETL & Data Ingestion
+**Example:**
+- Query: "How to install FastAPI?" → Score: 5.5 → Uses FastAPI docs ✅
+- Query: "What is Java?" → Score: 2.1 → Uses general knowledge ✅
 
-### Scheduled Scraping
+### Hybrid Search
 
-ETL runs automatically every 24 hours:
-- Scrapes configured URLs
-- Detects changed documents (via content hash)
-- Re-indexes only modified content
-- Logs scraping results
+Combines two search strategies:
 
-### Manual Ingestion
+```
+Vector Search (Semantic):
+  - Understands meaning: "install" ≈ "set up" ≈ "configure"
+  - Good for: Conceptual questions
 
-Via UI (Admin tab):
-1. Enter URLs to scrape
-2. Set max pages per URL
-3. Click "Start Ingestion"
+Keyword Search (BM25):
+  - Exact term matching: "@app.get" decorator
+  - Good for: Specific API calls, code snippets
 
-Via API:
+Combined Score = RRF(vector_results, keyword_results)
+```
+
+---
+
+Built-in metrics tracking (view in UI → Metrics tab):
+- Query volume and satisfaction rate
+- Response times (avg, P95, P99)
+- Popular and low-rated queries
+- Cost tracking
+
+See [SIMILARITY_SEARCH_GUIDE.md](docs/SIMILARITY_SEARCH_GUIDE.md) for testing and optimization strategies.
+
+---
+
+## 🛠️ Development
+
+**Make changes:**
 ```bash
-curl -X POST http://localhost:8000/api/ingest \
+# Edit code
+vim rag_api.py
+
+# Test locally
+./start_local.sh
+
+# Deploy to GCP
+gcloud builds submit --config cloudbuild.yaml
+cd terraform && terraform apply
+```
+
+**Testing:**
+```bash
+# Test API
+curl http://localhost:8000/
+
+# Test query
+curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
-  -d '{
-    "urls": ["https://docs.example.com"],
-    "max_pages_per_url": 50
-  }'
+  -d '{"query": "your question", "top_k": 3}'
+
+# View metrics
+curl http://localhost:8000/api/metrics?days=7
 ```
 
-### Supported Sources
+---
 
-- Public documentation sites (HTML)
-- Confluence (with authentication)
-- Static site generators (Jekyll, Hugo, etc.)
-- Any site with structured content
+## 💰 Costs
 
-## 🧪 Testing
+### Local Development
+- **$0/month** - Everything runs locally
 
-### Local Testing with Free Models
+### GCP Production
+- **Development**: ~$10-20/month (free tier + Vertex AI)
+- **Production**: ~$45-85/month (self-hosted Elasticsearch)
+- **vs Elastic Cloud**: Save 50-70%
 
-```bash
-# Use sentence-transformers for embeddings (no API key needed)
-export EMBEDDING_PROVIDER=local
+See [COST_COMPARISON.md](COST_COMPARISON.md) for detailed breakdown.
 
-# Use Ollama for LLM (no API key needed)
-export LLM_PROVIDER=local
-docker run -d -p 11434:11434 ollama/ollama
-docker exec $(docker ps -q -f ancestor=ollama/ollama) ollama pull llama3.2
+---
 
-# Run tests
-python -m pytest tests/
-```
+## 🔐 Security
 
-### Migration to Cloud
+**For production:**
+- Disable public access (set `allow_unauthenticated = false`)
+- Enable Cloud IAP or custom authentication
+- Rotate credentials regularly
+- Use VPC Service Controls
+- Enable audit logging
 
-1. **Test locally first** with free models
-2. **Benchmark quality** with your data
-3. **Switch to cloud** when ready:
-   ```python
-   # Update config in rag_api.py startup
-   embedding_config = EMBEDDING_CONFIGS['vertex_gecko']
-   llm_config = LLM_CONFIGS['vertex_gemini_flash']
-   ```
-4. **Monitor costs** via metrics dashboard
+See [GCP_DEPLOYMENT.md](docs/GCP_DEPLOYMENT.md) for security hardening.
 
-## 🔐 Security Considerations
+---
 
-- **API authentication**: Add API key middleware (not included in POC)
-- **Rate limiting**: Implement per-user limits
-- **PII detection**: Scan queries/responses for sensitive data
-- **Access control**: Restrict admin endpoints
-- **HTTPS**: Use reverse proxy (nginx) in production
+**Add knowledge sources:**
+- Go to Admin tab in UI
+- Add URL patterns (e.g., `https://docs.python.org/3/*`)
+- Configure crawl depth and limits
+- Trigger ingestion and monitor progress
 
-## 📈 Scaling to Production
+**Query your knowledge:**
+- Go to Search tab
+- Ask natural language questions
+- Get answers augmented with your internal docs
+- Provide feedback with 👍/👎
 
-### Performance Optimization
-
-```python
-# Enable caching for repeated queries
-from functools import lru_cache
-
-@lru_cache(maxsize=1000)
-def cached_embed(query: str):
-    return embedder.embed_query(query)
-
-# Use semantic cache
-from sentence_transformers import util
-
-def semantic_cache_lookup(query_embedding, cache, threshold=0.95):
-    for cached_query, cached_response in cache.items():
-        similarity = util.cos_sim(query_embedding, cached_query)
-        if similarity > threshold:
-            return cached_response
-    return None
-```
-
-### Infrastructure
-
-- **Elasticsearch cluster**: 3+ nodes for HA
-- **Load balancer**: Distribute API requests
-- **Redis cache**: Cache embeddings and responses
-- **CDN**: Serve UI assets
-- **Monitoring**: Prometheus + Grafana
-
-## 💰 Cost Estimates
-
-### Local (Development)
-- **Cost**: $0/month
-- **Performance**: Good for <100 queries/day
-- **Latency**: 1-3 seconds per query
-
-### Google Vertex AI (Production)
-- **Embeddings**: ~$0.025 per 1K queries (one-time per document)
-- **Gemini Flash**: ~$0.0005 per query
-- **Expected**: $15-50/month for 10K queries
-
-### Azure OpenAI (Production)
-- **Embeddings**: ~$0.0001 per 1K tokens
-- **GPT-4 Turbo**: ~$0.001-0.003 per query
-- **Expected**: $30-100/month for 10K queries
-
-## 🐛 Troubleshooting
-
-### Elasticsearch won't start
-```bash
-# Increase vm.max_map_count
-sudo sysctl -w vm.max_map_count=262144
-```
-
-### Ollama model not found
-```bash
-# Pull the model manually
-docker exec rag-ollama ollama pull llama3.2
-```
-
-### API returns 503
-```bash
-# Check if all services are healthy
-docker-compose ps
-docker-compose logs api
-```
-
-### Slow queries
-- Reduce `top_k` (fewer documents to retrieve)
-- Use smaller LLM model (llama3.2 → phi)
-- Enable caching
-- Check Elasticsearch heap size
+---
 
 ## 📝 License
 
-MIT License - feel free to use for commercial or personal projects.
+MIT License
 
-## 🤝 Contributing
+---
 
-Contributions welcome! Areas for improvement:
-- Advanced reranking (cross-encoder models)
-- Multi-turn conversations with memory
-- Fine-tuning embedding models
-- Support for more document formats (PDF, DOCX)
-- A/B testing framework
-
-## 📞 Support
-
-For issues or questions:
-1. Check troubleshooting section
-2. Review logs: `docker-compose logs -f`
-3. Open an issue on GitHub
-4. Contact: your-email@example.com
+**Need help?** See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) or [docs/GCP_DEPLOYMENT.md](docs/GCP_DEPLOYMENT.md)
