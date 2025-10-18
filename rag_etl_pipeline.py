@@ -57,7 +57,7 @@ class DocumentScraper:
     def scrape_page(url: str) -> Optional[Document]:
         """Scrape a single page"""
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=120)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -223,7 +223,7 @@ class RecursiveWebScraper:
         
         # Scrape the page
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=120)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')

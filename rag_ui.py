@@ -82,7 +82,8 @@ def get_popular_queries():
         response = requests.get(f"{API_BASE_URL}/api/popular-queries", timeout=10)
         response.raise_for_status()
         return response.json().get("popular_queries", [])
-    except:
+    except Exception as e:
+        st.error(f"Failed to get popular queries: {e}")
         return []
 
 
@@ -92,7 +93,8 @@ def get_low_rated_queries():
         response = requests.get(f"{API_BASE_URL}/api/low-rated-queries", timeout=10)
         response.raise_for_status()
         return response.json().get("low_rated_queries", [])
-    except:
+    except Exception as e:
+        st.error(f"Failed to get low-rated queries: {e}")
         return []
 
 
@@ -102,7 +104,8 @@ def trigger_etl():
         response = requests.post(f"{API_BASE_URL}/api/trigger-etl", timeout=5)
         response.raise_for_status()
         return True
-    except:
+    except Exception as e:
+        st.error(f"Failed to trigger ETL: {e}")
         return False
 
 
@@ -379,7 +382,7 @@ elif page == "Admin":
         
         # List all sources
         try:
-            response = requests.get(f"{API_BASE_URL}/api/admin/sources", timeout=10)
+            response = requests.get(f"{API_BASE_URL}/api/admin/sources", timeout=20)
             if response.status_code == 200:
                 data = response.json()
                 sources = data.get("sources", [])
@@ -418,7 +421,7 @@ elif page == "Admin":
                                         try:
                                             ingest_resp = requests.post(
                                                 f"{API_BASE_URL}/api/admin/sources/{source['source_id']}/ingest",
-                                                timeout=120
+                                                timeout=360
                                             )
                                             if ingest_resp.status_code == 200:
                                                 st.success("Ingestion started!")
@@ -536,7 +539,7 @@ elif page == "Admin":
                         response = requests.post(
                             f"{API_BASE_URL}/api/admin/sources",
                             json=source_data,
-                            timeout=120
+                            timeout=360
                         )
                         
                         if response.status_code == 200:
