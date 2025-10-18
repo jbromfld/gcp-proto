@@ -1,0 +1,32 @@
+# Terraform variables for GCP deployment
+# Copy to terraform.tfvars and fill in your values
+
+project_id     = "your-project-id"
+region         = "us-central1"
+
+# Elasticsearch configuration
+# Option 1: Self-hosted on GCE (Recommended - ~$30/mo)
+use_gce_elasticsearch      = true
+elasticsearch_machine_type = "e2-medium"  # $25/mo - e2-micro (FREE) has only 1GB RAM, not enough for Elasticsearch
+elasticsearch_disk_size_gb = 50           # ~$5/mo
+elasticsearch_use_preemptible = false     # Set true for dev to save 60%
+
+# Option 2: Elastic Cloud ($95+/mo) - Only uncomment if NOT using GCE
+# use_gce_elasticsearch  = false
+# elasticsearch_url      = "https://your-deployment.es.us-central1.gcp.cloud.es.io:9243"
+# elasticsearch_password = "your-elastic-password"
+
+# Note: elasticsearch_url and elasticsearch_password are NOT needed when use_gce_elasticsearch = true
+
+# VPC connector (only needed for GKE Elasticsearch)
+use_vpc_connector = false
+
+# Resource allocation
+api_cpu          = "2"
+api_memory       = "4Gi"
+api_min_instances = 0
+api_max_instances = 10
+
+# Security
+allow_unauthenticated = true  # Set to false for production
+

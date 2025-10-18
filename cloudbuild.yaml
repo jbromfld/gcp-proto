@@ -1,0 +1,82 @@
+# Cloud Build configuration for automated deployments
+# Triggered by GitHub pushes or manual builds
+
+steps:
+  # Build API image
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-api"
+    args:
+      - "build"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-api:latest"
+      - "-f"
+      - "Dockerfile.api"
+      - "."
+
+  # Build UI image
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-ui"
+    args:
+      - "build"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-ui:latest"
+      - "-f"
+      - "Dockerfile.ui"
+      - "."
+
+  # Build ETL image
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-etl"
+    args:
+      - "build"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-etl:latest"
+      - "-f"
+      - "Dockerfile.etl"
+      - "."
+
+  # Push images to Artifact Registry
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-api"
+    args:
+      [
+        "push",
+        "--all-tags",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-api",
+      ]
+    waitFor: ["build-api"]
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-ui"
+    args:
+      [
+        "push",
+        "--all-tags",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-ui",
+      ]
+    waitFor: ["build-ui"]
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-etl"
+    args:
+      [
+        "push",
+        "--all-tags",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/rag-etl",
+      ]
+    waitFor: ["build-etl"]
+
+  # Deployment is handled by Terraform, not Cloud Build
+  # These steps are commented out - use terraform apply instead
+
+# Substitution variables
+substitutions:
+  _REGION: us-central1
+  _REPO_NAME: rag-system
+
+options:
+  machineType: "E2_HIGHCPU_8"
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1800s # 30 minutes
+

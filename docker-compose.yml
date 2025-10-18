@@ -1,0 +1,134 @@
+# Docker Compose for RAG Knowledge Search System
+# Includes: Elasticsearch, API server, UI, and optional Ollama
+#
+# Usage:
+#   1. Create .env from template: cp env.local.template .env
+#   2. Start services: docker-compose up -d
+#   3. Stop services: docker-compose down
+
+services:
+  # Elasticsearch for vector storage
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.12
+    container_name: rag-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g" # Reduced memory for local dev
+      - cluster.name=rag-cluster
+      - node.name=rag-single-node
+      - bootstrap.memory_lock=true
+      - "TAKE_FILE_OWNERSHIP=1"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cat/health?h=status"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+  # Ollama for local LLM - using native macOS Ollama with GPU support
+  # (Disabled - using host.docker.internal to connect to native Ollama)
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: rag-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   networks:
+  #     - rag-network
+  #   platform: linux/arm64
+  #   environment:
+  #     - OLLAMA_MODEL=llama2:7b-chat-q4
+
+  # FastAPI backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: rag-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      - OLLAMA_BASE_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-local}
+      - LLM_PROVIDER=${LLM_PROVIDER:-local}
+      - GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID:-}
+      - GOOGLE_REGION=${GOOGLE_REGION:-us-central1}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcloud/application_default_credentials.json
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    # Keep for optional Vertex AI local testing
+    # Just ignore the empty folder
+    volumes:
+      - ${PWD}/credentials:/app/credentials:ro,Z
+      - ${HOME}/.config/gcloud/application_default_credentials.json:/app/gcloud/application_default_credentials.json:ro
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Streamlit UI
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: rag-ui
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=${API_URL:-http://api:8000}
+    depends_on:
+      - api
+    networks:
+      - rag-network
+
+  # ETL scheduler (runs in background)
+  etl:
+    build:
+      context: .
+      dockerfile: Dockerfile.etl
+    container_name: rag-etl
+    environment:
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-local}
+      - GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID:-}
+      - GOOGLE_REGION=${GOOGLE_REGION:-us-central1}
+      - PYTHONPATH=/app
+      - ETL_INTERVAL_HOURS=24
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+volumes:
+  es-data:
+    driver: local
+  ollama-data:
+    driver: local
+
+networks:
+  rag-network:
+    driver: bridge

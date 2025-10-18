@@ -1,0 +1,53 @@
+# Cloud Run service configuration for API
+# Can be applied with: gcloud run services replace api.yaml
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rag-api
+  labels:
+    cloud.googleapis.com/location: us-central1
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      serviceAccountName: rag-service@PROJECT_ID.iam.gserviceaccount.com
+      timeoutSeconds: 300
+      containerConcurrency: 80
+      containers:
+        - image: us-central1-docker.pkg.dev/PROJECT_ID/rag-system/rag-api:latest
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          env:
+            - name: EMBEDDING_PROVIDER
+              value: vertex
+            - name: LLM_PROVIDER
+              value: vertex
+            - name: GOOGLE_PROJECT_ID
+              value: PROJECT_ID
+            - name: GOOGLE_REGION
+              value: us-central1
+            - name: ELASTICSEARCH_URL
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-url
+                  key: latest
+            - name: ELASTICSEARCH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-password
+                  key: latest
+            - name: ELASTICSEARCH_USERNAME
+              value: elastic
+  traffic:
+    - percent: 100
+      latestRevision: true

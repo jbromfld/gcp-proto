@@ -1,0 +1,46 @@
+# Use Python 3.11 slim image as base
+# docker docker build --platform linux/amd64 -t us-central1-docker.pkg.dev/gcp-poc-474818/rag-system/rag-api:latest -f Dockerfile.api .
+# docker push us-central1-docker.pkg.dev/gcp-poc-474818/rag-system/rag-api:latest
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies required for Python packages
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY rag_api.py .
+COPY rag_embeddings.py .
+COPY rag_llm_abstraction.py .
+COPY rag_service.py .
+COPY rag_evaluation.py .
+COPY rag_etl_pipeline.py .
+COPY rag_sources.py .
+COPY elasticsearch_client.py .
+
+# Create directory for credentials (optional - used for cloud providers)
+RUN mkdir -p /app/credentials
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8000
+
+# Expose port
+EXPOSE 8000
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/ || exit 1
+
+# Start FastAPI server using uvicorn
+CMD ["uvicorn", "rag_api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
