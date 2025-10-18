@@ -11,8 +11,20 @@ from typing import List, Optional
 import numpy as np
 from dataclasses import dataclass
 import logging
+import tiktoken
 
 logger = logging.getLogger(__name__)
+
+
+def count_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
+    """Count tokens in text using tiktoken"""
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+        return len(encoding.encode(text))
+    except KeyError:
+        # Fallback to cl100k_base encoding
+        encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(text))
 
 
 @dataclass
@@ -71,14 +83,29 @@ class VertexAIEmbeddings(EmbeddingProvider):
             raise ImportError("Install google-cloud-aiplatform: pip install google-cloud-aiplatform")
     
     def embed_texts(self, texts: List[str]) -> np.ndarray:
-        """Embed texts in batches"""
+        """Embed texts in batches with token validation"""
         embeddings = []
         batch_size = self.config.max_batch_size
+        max_tokens = 18000  # Leave buffer below 20k limit
         
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
-            batch_embeddings = self.model.get_embeddings(batch)
-            embeddings.extend([emb.values for emb in batch_embeddings])
+            
+            # Validate token count for each text in batch
+            filtered_batch = []
+            for text in batch:
+                token_count = count_tokens(text)
+                if token_count > max_tokens:
+                    logger.warning(f"Text too long ({token_count} tokens), truncating to {max_tokens} tokens")
+                    # Simple truncation - could be improved with smarter chunking
+                    truncated_text = text[:int(len(text) * max_tokens / token_count)]
+                    filtered_batch.append(truncated_text)
+                else:
+                    filtered_batch.append(text)
+            
+            if filtered_batch:
+                batch_embeddings = self.model.get_embeddings(filtered_batch)
+                embeddings.extend([emb.values for emb in batch_embeddings])
         
         return np.array(embeddings)
     

@@ -67,8 +67,8 @@ class DocumentScraper:
                 element.decompose()
             
             # Get title
-            title = soup.find('title')
-            title = title.get_text().strip() if title else url
+            title_tag = soup.find('title')
+            title = title_tag.get_text().strip() if title_tag else url
             
             # Get main content
             main = soup.find('main') or soup.find('article') or soup.find('body')
@@ -101,7 +101,7 @@ class DocumentScraper:
         # For POC, we'll implement simple link following
         # In production, use Scrapy or sitemap.xml parsing
         
-        documents = []
+        documents: List[Document] = []
         visited = set()
         to_visit = [base_url]
         
@@ -161,10 +161,14 @@ class RecursiveWebScraper:
     
     def _extract_links(self, soup: BeautifulSoup, current_url: str) -> List[str]:
         """Extract and normalize links from a page"""
-        links = []
+        links: List[str] = []
         for a_tag in soup.find_all('a', href=True):
             href = a_tag['href']
             
+            # Ensure href is a string
+            if not isinstance(href, str):
+                continue
+                
             # Skip anchors, mailto, tel, javascript
             if href.startswith(('#', 'mailto:', 'tel:', 'javascript:')):
                 continue
@@ -177,7 +181,7 @@ class RecursiveWebScraper:
             
             links.append(absolute_url)
         
-        return links
+        return [link for link in links if isinstance(link, str)]
     
     def crawl(self, start_url: str) -> List[Document]:
         """
@@ -253,8 +257,8 @@ class RecursiveWebScraper:
                 element.decompose()
             
             # Get title
-            title = soup.find('title')
-            title = title.get_text().strip() if title else url
+            title_tag = soup.find('title')
+            title = title_tag.get_text().strip() if title_tag else url
             
             # Get main content
             main = soup.find('main') or soup.find('article') or soup.find('body')
@@ -288,7 +292,7 @@ class RecursiveWebScraper:
 class DocumentChunker:
     """Chunks documents with overlap for better retrieval"""
     
-    def __init__(self, chunk_size: int = 300, overlap: int = 30):
+    def __init__(self, chunk_size: int = 200, overlap: int = 20):
         self.chunk_size = chunk_size
         self.overlap = overlap
     
@@ -297,8 +301,8 @@ class DocumentChunker:
         # Split by sentences (simple approach)
         sentences = self._split_sentences(doc.content)
         
-        chunks = []
-        current_chunk = []
+        chunks: List[str] = []
+        current_chunk: List[str] = []
         current_length = 0
         
         for sentence in sentences:
@@ -309,7 +313,7 @@ class DocumentChunker:
                 chunks.append(' '.join(current_chunk))
                 
                 # Keep last few sentences for overlap
-                overlap_sentences = []
+                overlap_sentences: List[str] = []
                 overlap_length = 0
                 for s in reversed(current_chunk):
                     s_len = len(s.split())
@@ -424,7 +428,7 @@ class ElasticsearchIndexer:
             )
             if result['hits']['hits']:
                 return result['hits']['hits'][0]['_source'].get('content_hash')
-        except:
+        except Exception:
             pass
         return None
     
@@ -597,7 +601,7 @@ if __name__ == "__main__":
     indexer = ElasticsearchIndexer(es_client, index_name="knowledge_base")
     indexer.create_index(embedding_dim=embedder.dimensions)
     
-    chunker = DocumentChunker(chunk_size=300, overlap=30)
+    chunker = DocumentChunker(chunk_size=200, overlap=20)
     
     pipeline = ETLPipeline(embedder, indexer, chunker)
     

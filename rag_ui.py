@@ -418,7 +418,7 @@ elif page == "Admin":
                                         try:
                                             ingest_resp = requests.post(
                                                 f"{API_BASE_URL}/api/admin/sources/{source['source_id']}/ingest",
-                                                timeout=30
+                                                timeout=120
                                             )
                                             if ingest_resp.status_code == 200:
                                                 st.success("Ingestion started!")
@@ -536,7 +536,7 @@ elif page == "Admin":
                         response = requests.post(
                             f"{API_BASE_URL}/api/admin/sources",
                             json=source_data,
-                            timeout=30
+                            timeout=120
                         )
                         
                         if response.status_code == 200:
