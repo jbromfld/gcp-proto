@@ -24,6 +24,7 @@ google-cloud-aiplatform>=1.75.0
 
 # Azure OpenAI (optional - only if using Azure)
 openai>=1.59.0
+tiktoken>=0.8.0
 
 # Data processing
 numpy>=1.26.0
