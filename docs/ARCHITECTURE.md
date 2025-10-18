@@ -6,7 +6,7 @@ This is a production-ready Retrieval-Augmented Generation (RAG) system that enab
 
 The system supports both local development (using Ollama and sentence-transformers) and GCP production deployment (using Vertex AI and managed Elasticsearch), with automatic document ingestion, chunking, and vector indexing. It features a modern web UI for querying, comprehensive admin tools for source management, and robust infrastructure with auto-scaling Cloud Run services connected via VPC to a self-hosted Elasticsearch cluster.
 
-The architecture diagram shows the complete data flow from document ingestion through web scraping, chunking with embeddings, vector storage, and finally query processing with LLM generation - all designed to stay within token limits and provide accurate, contextual answers based on your knowledge base.
+The architecture diagram shows the complete data flow from document ingestion through web scraping, chunking with embeddings, vector storage, and finally query processing with LLM generation - all designed to stay within token limits and provide accurate, contextual answers based on your knowledge base, with minimal hallucinations.
 
 ## Architecture Flow
 

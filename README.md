@@ -192,7 +192,7 @@ LLM_PROVIDER=azure         # gpt-4
 
 **Add sources via UI:**
 - Single page: `https://fastapi.tiangolo.com/`
-- Recursive crawl: `https://docs.python.org/3/*`
+- Recursive crawl: `https://docs.python.org/3/` or `https://docs.langchain.com`
 - Configure depth (1-5 levels), page limits, URL patterns
 - Track ingestion status and statistics
 
