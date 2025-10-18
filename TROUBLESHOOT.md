@@ -371,6 +371,28 @@ gcloud logging read \
 
 ### Elasticsearch Issues
 
+#### **Lock File Issues (GCP)**
+**Error**: `failed to obtain node locks, tried [/usr/share/elasticsearch/data]`
+
+**Root Cause**: Elasticsearch container can't create lock files due to permission issues
+
+**Fix**:
+```bash
+# SSH into the Elasticsearch VM
+gcloud compute ssh elasticsearch --zone=us-central1-a --project=YOUR_PROJECT
+
+# Fix permissions and clean up lock files
+sudo mkdir -p /var/lib/elasticsearch
+sudo chown -R 1000:1000 /var/lib/elasticsearch
+sudo chmod -R 755 /var/lib/elasticsearch
+sudo find /var/lib/elasticsearch -name "*.lock" -type f -delete
+sudo rm -rf /var/lib/elasticsearch/nodes
+sudo docker restart elasticsearch
+```
+
+**Prevention**: The Terraform startup script now includes these fixes automatically.
+
+#### **General Elasticsearch Checks**
 ```bash
 # Check index exists
 curl http://localhost:9200/_cat/indices?v

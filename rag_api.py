@@ -161,7 +161,7 @@ async def startup_event():
         )
         
         # Setup scheduled ETL (24 hour cadence)
-        chunker = DocumentChunker(chunk_size=500, overlap=50)
+        chunker = DocumentChunker(chunk_size=300, overlap=30)
         etl_pipeline = ETLPipeline(embedder, indexer, chunker)
         
         # Start with empty knowledge base - sources managed through admin UI

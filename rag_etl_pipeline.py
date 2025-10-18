@@ -288,7 +288,7 @@ class RecursiveWebScraper:
 class DocumentChunker:
     """Chunks documents with overlap for better retrieval"""
     
-    def __init__(self, chunk_size: int = 500, overlap: int = 50):
+    def __init__(self, chunk_size: int = 300, overlap: int = 30):
         self.chunk_size = chunk_size
         self.overlap = overlap
     
@@ -597,7 +597,7 @@ if __name__ == "__main__":
     indexer = ElasticsearchIndexer(es_client, index_name="knowledge_base")
     indexer.create_index(embedding_dim=embedder.dimensions)
     
-    chunker = DocumentChunker(chunk_size=500, overlap=50)
+    chunker = DocumentChunker(chunk_size=300, overlap=30)
     
     pipeline = ETLPipeline(embedder, indexer, chunker)
     

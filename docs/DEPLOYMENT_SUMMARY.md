@@ -7,11 +7,11 @@
 - **API**: http://localhost:8000
 - **Elasticsearch**: Running in Docker with persistent volumes
 
-### 🚀 **GCP DEPLOYMENT - FINAL BUILD IN PROGRESS**
+### ✅ **GCP DEPLOYMENT - FULLY OPERATIONAL**
 - **UI**: https://rag-ui-obiwvdgyca-uc.a.run.app
 - **API**: https://rag-api-obiwvdgyca-uc.a.run.app
 - **ETL**: https://rag-etl-obiwvdgyca-uc.a.run.app
-- **Elasticsearch**: GCE e2-medium at `10.128.0.6`
+- **Elasticsearch**: GCE e2-medium at `10.128.0.11` (healthy)
 
 ---
 
@@ -41,17 +41,33 @@
 - **Problem**: `textembedding-gecko@003` and `gemini-1.5-flash` not found
 - **Fix**: 
   - Embedding: `text-embedding-004` (correct latest model)
-  - LLM: `gemini-pro` (stable, widely available)
+  - LLM: `gemini-2.5-pro` (latest model, confirmed working)
 
 ### 5. **VPC Connectivity** ✅
 - **Problem**: Cloud Run couldn't reach Elasticsearch on GCE
 - **Fix**: Created VPC Access Connector (`rag-vpc-connector`)
 - **Result**: Cloud Run services can now access internal IP `10.128.0.6`
 
-### 6. **Elasticsearch VM Issues** ✅
-- **Problem**: Lock files from previous crashes, permission errors
-- **Fix**: 
-  - Cleared stale lock files
+### 6. **Elasticsearch Lock File Issues** ✅
+- **Problem**: `failed to obtain node locks, tried [/usr/share/elasticsearch/data]` - Elasticsearch container couldn't start due to permission and lock file issues
+- **Root Cause**: 
+  - Missing proper directory permissions (Elasticsearch runs as UID 1000)
+  - Stale lock files from previous container restarts
+  - Directory structure not properly initialized
+- **Fix**: Updated startup script in `terraform/elasticsearch_gce.tf`:
+  ```bash
+  # Ensure proper directory structure and permissions for Elasticsearch
+  mkdir -p /var/lib/elasticsearch
+  chown -R 1000:1000 /var/lib/elasticsearch
+  chmod -R 755 /var/lib/elasticsearch
+  
+  # Clean up ALL stale lock files (fixes restart issues)
+  find /var/lib/elasticsearch -name "*.lock" -type f -delete 2>/dev/null || true
+  find /var/lib/elasticsearch -name "write.lock" -type f -delete 2>/dev/null || true
+  find /var/lib/elasticsearch -name "node.lock" -type f -delete 2>/dev/null || true
+  rm -rf /var/lib/elasticsearch/nodes 2>/dev/null || true
+  ```
+- **Result**: Elasticsearch now starts reliably on VM restart
   - Fixed permissions (`chown 1000:1000`, `chmod 777`)
   - Recreated container with clean data
 - **Upgraded**: e2-micro → e2-medium (4GB RAM needed)
@@ -131,7 +147,7 @@ Relevance Threshold: 3.0
 
 ### **GCP Production**
 ```yaml
-LLM: Vertex AI gemini-pro
+LLM: Vertex AI gemini-2.5-pro
 Embeddings: Vertex AI text-embedding-004 (768 dims)
 Vector Store: Elasticsearch 8.11 (GCE e2-medium)
 Infrastructure:
@@ -153,12 +169,12 @@ Infrastructure:
 - Response time: ~15s (Ollama is slower than Vertex AI)
 - Metrics: Working (6 queries, 100% thumbs up)
 
-### **GCP Testing** 🔄
-- Waiting for final build with `gemini-pro` model
-- Previous tests:
-  - ✅ Elasticsearch connection working via VPC
-  - ✅ Embedding API working (`text-embedding-004`)
-  - ⏳ LLM model name being finalized
+### **GCP Testing** ✅
+- **Query**: "test query"
+- **Response**: Working correctly with `gemini-2.5-pro`
+- **Model**: `gemini-2.5-pro_fallback` (confirmed working)
+- **Response Time**: ~10.5 seconds
+- **All Components**: ✅ Elasticsearch, ✅ Embeddings, ✅ LLM
 
 ---
 
