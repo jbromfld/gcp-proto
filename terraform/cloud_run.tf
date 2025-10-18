@@ -6,6 +6,7 @@ resource "google_cloud_run_service" "api" {
   template {
     spec {
       service_account_name = google_service_account.rag_service.email
+      timeout_seconds      = 300 # 5 minutes for API requests
 
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/rag-api:latest"
@@ -18,12 +19,12 @@ resource "google_cloud_run_service" "api" {
         }
 
         env {
-          name = "ELASTICSEARCH_URL"
+          name  = "ELASTICSEARCH_URL"
           value = var.use_gce_elasticsearch ? "http://${google_compute_instance.elasticsearch[0].network_interface[0].network_ip}:9200" : var.elasticsearch_url
         }
 
         env {
-          name = "ELASTICSEARCH_PASSWORD"
+          name  = "ELASTICSEARCH_PASSWORD"
           value = var.use_gce_elasticsearch ? "" : var.elasticsearch_password
         }
 
@@ -143,12 +144,12 @@ resource "google_cloud_run_service" "etl" {
         }
 
         env {
-          name = "ELASTICSEARCH_URL"
+          name  = "ELASTICSEARCH_URL"
           value = var.use_gce_elasticsearch ? "http://${google_compute_instance.elasticsearch[0].network_interface[0].network_ip}:9200" : var.elasticsearch_url
         }
 
         env {
-          name = "ELASTICSEARCH_PASSWORD"
+          name  = "ELASTICSEARCH_PASSWORD"
           value = var.use_gce_elasticsearch ? "" : var.elasticsearch_password
         }
 

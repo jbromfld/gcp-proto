@@ -77,10 +77,19 @@ resource "google_compute_instance" "elasticsearch" {
       systemctl start docker
     fi
     
+    # Ensure proper directory structure and permissions for Elasticsearch
+    echo "Setting up Elasticsearch data directory..."
+    mkdir -p /var/lib/elasticsearch
+    chown -R 1000:1000 /var/lib/elasticsearch
+    chmod -R 755 /var/lib/elasticsearch
+    
     # Clean up ALL stale lock files (fixes restart issues)
     echo "Cleaning up any stale Elasticsearch lock files..."
     find /var/lib/elasticsearch -name "*.lock" -type f -delete 2>/dev/null || true
     find /var/lib/elasticsearch -name "write.lock" -type f -delete 2>/dev/null || true
+    find /var/lib/elasticsearch -name "node.lock" -type f -delete 2>/dev/null || true
+    # Also clean up any existing container data
+    rm -rf /var/lib/elasticsearch/nodes 2>/dev/null || true
     
     # Run Elasticsearch container
     docker stop elasticsearch || true
@@ -129,16 +138,16 @@ resource "google_compute_instance" "elasticsearch" {
 # Wait for Elasticsearch to fully initialize before deploying Cloud Run
 resource "time_sleep" "wait_for_elasticsearch" {
   count = var.use_gce_elasticsearch ? 1 : 0
-  
+
   depends_on = [google_compute_instance.elasticsearch]
-  
+
   # Wait 5 minutes for:
   # - VM boot (~30s)
   # - Docker installation (~2 min)
   # - ES container start (~1 min)
   # - ES initialization (~2 min)
-  create_duration = "300s"  # 5 minutes
-  
+  create_duration = "300s" # 5 minutes
+
   triggers = {
     # Re-wait if instance is recreated
     instance_id = google_compute_instance.elasticsearch[0].instance_id
