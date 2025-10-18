@@ -23,14 +23,13 @@ A production-ready Retrieval-Augmented Generation (RAG) system with hybrid searc
 cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 vim terraform/terraform.tfvars  # Set project_id
 
-# 2. Deploy infrastructure
+# 2. Build and push Docker images
+gcloud builds submit --config cloudbuild.yaml
+
+# 3. Deploy infrastructure
 cd terraform
 terraform init
 terraform apply
-
-# 3. Build and push Docker images
-cd ..
-gcloud builds submit --config cloudbuild.yaml
 
 # 4. Services auto-deploy via Terraform
 ```
@@ -148,8 +147,7 @@ gcp-proto/
     ├── docs/LOCAL_DEVELOPMENT.md     # Local dev guide
     ├── docs/GCP_DEPLOYMENT.md        # GCP deployment guide
     ├── docs/SIMILARITY_SEARCH_GUIDE.md # Testing & optimization
-    ├── docs/DEPLOYMENT_SUMMARY.md    # What we built
-    └── COST_COMPARISON.md            # Pricing analysis
+    └── docs/DEPLOYMENT_SUMMARY.md    # What we built
 ```
 
 ---
@@ -162,7 +160,6 @@ gcp-proto/
 | [GCP_DEPLOYMENT.md](docs/GCP_DEPLOYMENT.md) | Deploy to Google Cloud | Going to production |
 | [SIMILARITY_SEARCH_GUIDE.md](docs/SIMILARITY_SEARCH_GUIDE.md) | Tuning, testing, optimization | Improving search quality |
 | [DEPLOYMENT_SUMMARY.md](docs/DEPLOYMENT_SUMMARY.md) | What was built, issues resolved | Quick reference |
-| [COST_COMPARISON.md](COST_COMPARISON.md) | Pricing for different configs | Budget planning |
 
 ---
 
