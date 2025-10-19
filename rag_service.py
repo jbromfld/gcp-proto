@@ -233,8 +233,8 @@ class RAGService:
         retrieval_time = (time.time() - retrieval_start) * 1000
         
         # Check if we have relevant documents
-        # Higher threshold = stricter relevance check
-        RELEVANCE_THRESHOLD = 3.0  # Minimum score for document to be considered truly relevant
+        # Lower threshold = more permissive, uses retrieved docs more often
+        RELEVANCE_THRESHOLD = 2.0  # Minimum score for document to be considered truly relevant
         
         if not retrieved_docs:
             logger.warning(f"No documents retrieved for query: {user_query}")
