@@ -6,8 +6,9 @@ Supports scheduled re-scraping (default: 24 hours)
 import hashlib
 import logging
 import os
+import re
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Tuple
 from dataclasses import dataclass
 import time
 
@@ -22,6 +23,8 @@ from rag_embeddings import EmbeddingProvider, EmbeddingFactory, EMBEDDING_CONFIG
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
 
 
 @dataclass
@@ -290,58 +293,61 @@ class RecursiveWebScraper:
 
 
 class DocumentChunker:
-    """Chunks documents with overlap for better retrieval"""
+    """Document chunker with token-aware splitting to avoid LLM limits"""
     
-    def __init__(self, chunk_size: int = 200, overlap: int = 20):
+    def __init__(self, chunk_size: int = 500, overlap: int = 50, max_tokens: int = 15000):
         self.chunk_size = chunk_size
         self.overlap = overlap
+        self.max_tokens = max_tokens
     
     def chunk_document(self, doc: Document) -> List[str]:
-        """Chunk document with overlap"""
-        # Split by sentences (simple approach)
-        sentences = self._split_sentences(doc.content)
+        """Chunk document with token limits to avoid LLM token limits"""
+        words = doc.content.split()
+        chunks = []
         
-        chunks: List[str] = []
-        current_chunk: List[str] = []
+        for i in range(0, len(words), self.chunk_size - self.overlap):
+            chunk_words = words[i:i + self.chunk_size]
+            if chunk_words:
+                chunk_text = ' '.join(chunk_words)
+                
+                # Check if chunk exceeds token limit (rough estimate: 4 chars per token)
+                estimated_tokens = len(chunk_text) / 4
+                if estimated_tokens > self.max_tokens:
+                    # Split large chunk further
+                    sub_chunks = self._split_large_chunk(chunk_text)
+                    chunks.extend(sub_chunks)
+                else:
+                    chunks.append(chunk_text)
+        
+        return chunks
+    
+    def _split_large_chunk(self, text: str) -> List[str]:
+        """Split a chunk that exceeds token limits"""
+        # Split by sentences first
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        
+        chunks = []
+        current_chunk = []
         current_length = 0
         
         for sentence in sentences:
-            sentence_length = len(sentence.split())
+            sentence_length = len(sentence)
             
-            if current_length + sentence_length > self.chunk_size and current_chunk:
-                # Save chunk
+            # If adding this sentence would exceed limit, finalize current chunk
+            if current_length + sentence_length > self.max_tokens * 4 and current_chunk:
                 chunks.append(' '.join(current_chunk))
-                
-                # Keep last few sentences for overlap
-                overlap_sentences: List[str] = []
-                overlap_length = 0
-                for s in reversed(current_chunk):
-                    s_len = len(s.split())
-                    if overlap_length + s_len <= self.overlap:
-                        overlap_sentences.insert(0, s)
-                        overlap_length += s_len
-                    else:
-                        break
-                
-                current_chunk = overlap_sentences
-                current_length = overlap_length
+                current_chunk = []
+                current_length = 0
             
             current_chunk.append(sentence)
             current_length += sentence_length
         
-        # Add last chunk
+        # Add final chunk
         if current_chunk:
             chunks.append(' '.join(current_chunk))
         
         return chunks
     
-    @staticmethod
-    def _split_sentences(text: str) -> List[str]:
-        """Simple sentence splitter"""
-        import re
-        # Simple sentence boundary detection
-        sentences = re.split(r'(?<=[.!?])\s+', text)
-        return [s.strip() for s in sentences if s.strip()]
 
 
 class ElasticsearchIndexer:
@@ -601,7 +607,7 @@ if __name__ == "__main__":
     indexer = ElasticsearchIndexer(es_client, index_name="knowledge_base")
     indexer.create_index(embedding_dim=embedder.dimensions)
     
-    chunker = DocumentChunker(chunk_size=200, overlap=20)
+    chunker = DocumentChunker(chunk_size=500, overlap=50, max_tokens=15000)
     
     pipeline = ETLPipeline(embedder, indexer, chunker)
     
@@ -618,3 +624,4 @@ if __name__ == "__main__":
     # Option 2: Run on schedule (24 hours)
     # scheduler = ScheduledETL(pipeline, scrape_urls, interval_hours=24)
     # scheduler.run_loop()  # Runs forever
+
