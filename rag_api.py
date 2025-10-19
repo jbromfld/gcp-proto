@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 import logging
 import os
 
-from elasticsearch import Elasticsearch
 
 from rag_embeddings import EmbeddingFactory, EMBEDDING_CONFIGS
 from rag_llm_abstraction import LLMFactory, LLM_CONFIGS
@@ -161,7 +160,7 @@ async def startup_event():
         )
         
         # Setup scheduled ETL (24 hour cadence)
-    chunker = DocumentChunker(chunk_size=500, overlap=50, max_tokens=15000)
+        chunker = DocumentChunker(chunk_size=500, overlap=50, max_tokens=15000)
         etl_pipeline = ETLPipeline(embedder, indexer, chunker)
         
         # Start with empty knowledge base - sources managed through admin UI
