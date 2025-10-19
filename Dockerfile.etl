@@ -1,5 +1,5 @@
 # Use Python 3.11 slim image as base
-# docker build --platform linux/amd64 -t us-central1-docker.pkg.dev/gcp-poc-474818/rag-system/rag-etl:latest -f Dockerfile.etl .
+# docker build --platform linux/amd64 -t us-central1-docker.pkg.dev/YOUR-PROJECT-ID/rag-system/rag-etl:latest -f Dockerfile.etl .
 FROM python:3.11-slim
 
 # Set working directory

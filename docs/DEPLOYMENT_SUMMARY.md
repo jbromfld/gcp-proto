@@ -8,10 +8,10 @@
 - **Elasticsearch**: Running in Docker with persistent volumes
 
 ### ✅ **GCP DEPLOYMENT - FULLY OPERATIONAL**
-- **UI**: https://rag-ui-obiwvdgyca-uc.a.run.app
-- **API**: https://rag-api-obiwvdgyca-uc.a.run.app
-- **ETL**: https://rag-etl-obiwvdgyca-uc.a.run.app
-- **Elasticsearch**: GCE e2-medium at `10.128.0.11` (healthy)
+- **UI**: https://rag-ui-XXXXX-uc.a.run.app
+- **API**: https://rag-api-XXXXX-uc.a.run.app
+- **ETL**: https://rag-etl-XXXXX-uc.a.run.app
+- **Elasticsearch**: GCE e2-medium at `10.128.0.X` (healthy)
 
 ---
 
@@ -321,15 +321,15 @@ terraform apply
 ### **Testing**
 ```bash
 # Test API
-curl https://rag-api-obiwvdgyca-uc.a.run.app/
+curl https://rag-api-XXXXX-uc.a.run.app/
 
 # Test query
-curl -X POST https://rag-api-obiwvdgyca-uc.a.run.app/api/query \
+curl -X POST https://rag-api-XXXXX-uc.a.run.app/api/query \
   -H "Content-Type: application/json" \
   -d '{"query": "test", "top_k": 3}'
 
 # Check metrics
-curl https://rag-api-obiwvdgyca-uc.a.run.app/api/metrics?days=7
+curl https://rag-api-XXXXX-uc.a.run.app/api/metrics?days=7
 ```
 
 ---
