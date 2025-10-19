@@ -59,6 +59,7 @@ resource "google_cloud_run_service" "api" {
         "autoscaling.knative.dev/minScale"        = var.api_min_instances
         "autoscaling.knative.dev/maxScale"        = var.api_max_instances
         "run.googleapis.com/vpc-access-connector" = var.use_vpc_connector ? google_vpc_access_connector.connector[0].id : null
+        "run.googleapis.com/force-update"         = timestamp()
       }
     }
   }
@@ -108,6 +109,7 @@ resource "google_cloud_run_service" "ui" {
       annotations = {
         "autoscaling.knative.dev/minScale" = "0"
         "autoscaling.knative.dev/maxScale" = "5"
+        "run.googleapis.com/force-update"  = timestamp()
       }
     }
   }
@@ -174,6 +176,7 @@ resource "google_cloud_run_service" "etl" {
         "autoscaling.knative.dev/minScale"        = "0"
         "autoscaling.knative.dev/maxScale"        = "1"
         "run.googleapis.com/vpc-access-connector" = var.use_vpc_connector ? google_vpc_access_connector.connector[0].id : null
+        "run.googleapis.com/force-update"         = timestamp()
       }
     }
   }
