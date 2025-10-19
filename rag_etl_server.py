@@ -42,12 +42,7 @@ async def startup():
         indexer.create_index(embedding_dim=embedder.dimensions)
         
         # Setup pipeline
-        chunker = DocumentChunker(
-            chunk_size=100, 
-            overlap=10, 
-            max_tokens=15000,
-            min_chunk_size=20
-        )
+    chunker = DocumentChunker(chunk_size=500, overlap=50, max_tokens=15000)
         etl_pipeline = ETLPipeline(embedder, indexer, chunker)
         
         logger.info("ETL pipeline initialized successfully")
