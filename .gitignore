@@ -6,6 +6,10 @@ terraform/terraform.tfstate*
 terraform/*.tfvars
 *.auto.tfvars
 
+# Terraform plan files
+terraform/tfplan
+terraform/terraform-apply.log
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

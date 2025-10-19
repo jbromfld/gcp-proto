@@ -27,7 +27,7 @@ nano terraform.tfvars
 
 **Required settings:**
 ```hcl
-project_id = "gcp-poc-474818"  # Your project ID
+project_id = "your-project-id"  # Your project ID
 region     = "us-central1"
 
 # GCE Elasticsearch (FREE or ~$30/mo)
@@ -74,7 +74,7 @@ After your first successful `terraform apply`:
 ```hcl
 # Uncomment these lines in main.tf:
 backend "gcs" {
-  bucket = "gcp-poc-474818-terraform-state"  # Your project ID + suffix
+  bucket = "your-project-id-terraform-state"  # Your project ID + suffix
   prefix = "rag-system/state"
 }
 ```
@@ -91,7 +91,7 @@ terraform init -migrate-state
 **3. Verify:**
 ```bash
 # Check state is in GCS
-gsutil ls gs://gcp-poc-474818-terraform-state/rag-system/
+gsutil ls gs://your-project-id-terraform-state/rag-system/
 
 # Your local terraform.tfstate will become a backup
 ```
@@ -108,8 +108,8 @@ gsutil ls gs://gcp-poc-474818-terraform-state/rag-system/
 # Comment out the backend "gcs" block in main.tf (already done)
 
 # Option 2: Create bucket manually
-gsutil mb -p gcp-poc-474818 -l us-central1 gs://gcp-poc-474818-terraform-state
-gsutil versioning set on gs://gcp-poc-474818-terraform-state
+gsutil mb -p your-project-id -l us-central1 gs://your-project-id-terraform-state
+gsutil versioning set on gs://your-project-id-terraform-state
 ```
 
 ### "Enter a value for Cloud Storage Bucket"
